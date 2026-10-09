@@ -1,0 +1,131 @@
+========================================================================
+  EM-DAT Feature Engineering & Labelling Report
+  Input  : D:\ML\realtime-disaster-ml\datasets\raw\public_emdat_2026-09-09.xlsx
+  Output : D:\ML\realtime-disaster-ml\datasets\processed\emdat_ml_dataset.csv
+========================================================================
+
+  Raw rows loaded from 'EM-DAT Data': 17,022
+
+------------------------------------------------------------------------
+  1. Filtering
+------------------------------------------------------------------------
+  Natural disaster rows          : 10,875
+  After keeping supported types  : 8,909
+  After year filter 2000-2025    : 8,774
+
+------------------------------------------------------------------------
+  2. Feature engineering
+------------------------------------------------------------------------
+  magnitude : NaN retained for missing values; never replaced with zero.
+  magnitude_available=1 rows  : 3,069
+  magnitude_available=0 rows  : 5,705
+
+  LEAKAGE PREVENTION: temporal_split assigned BEFORE any threshold computation.
+
+------------------------------------------------------------------------
+  3. Duplicate DisNo. check
+------------------------------------------------------------------------
+  No duplicate DisNo. values found.
+
+------------------------------------------------------------------------
+  4. Outcome columns  (label creation only)
+------------------------------------------------------------------------
+  LEAKAGE NOTE: outcome columns are kept ONLY for labelling.
+  They will be DROPPED before saving the feature matrix.
+  total_deaths   non-null : 6,382 / 8,774
+  total_affected non-null : 7,354 / 8,774
+
+------------------------------------------------------------------------
+  5. Label: affected_range
+------------------------------------------------------------------------
+  Train rows with known Total Affected : 5,432
+  TRAIN P25 threshold  : 800.0
+  TRAIN P75 threshold  : 48,723.2
+  LEAKAGE NOTE: P25/P75 computed from TRAIN only; applied to all splits.
+
+  Rows with affected_range label       : 7,354
+  Rows excluded (missing total_affected): 1,420
+
+  affected_range counts per split:
+    train       : total=6,528  low=1,369  medium=2,705  high=1,358  missing=1,096
+    validation  : total=1,145  low=275  medium=466  high=238  missing=166
+    test        : total=1,101  low=277  medium=405  high=261  missing=158
+
+------------------------------------------------------------------------
+  6. Label: impact_priority
+------------------------------------------------------------------------
+  Requires BOTH total_deaths AND total_affected to be non-null.
+  Thresholds are category-specific and computed from TRAIN rows only.
+  LEAKAGE NOTE: validation/test data never used for threshold computation.
+
+  Per-category TRAIN thresholds:
+  Category                 n_train   deaths_med   deaths_p75      aff_med      aff_p75
+  ------------------------------------------------------------------------------
+  Earthquake                   348          6.0         38.2      8,988.5     87,320.5
+  Flood                      2,115         12.0         33.5     13,000.0    100,000.0
+  Landslide                    235         22.0         50.0        300.0      2,432.0
+  Storm                      1,169          9.0         25.0      7,780.0     89,950.0
+  Volcanic activity             17    [SKIPPED — fewer than 30 rows with both outcomes in training set]
+  Wildfire                      94          4.0         14.0      1,150.0      4,665.5
+
+  Rows with impact_priority label      : 5,320
+  Rows excluded (missing both outcomes): 3,454
+
+  impact_priority counts per split:
+    train       : total=6,528  low=1,291  medium=1,255  high=1,415  missing=2,567
+    validation  : total=1,145  low=274  medium=204  high=203  missing=464
+    test        : total=1,101  low=227  medium=182  high=269  missing=423
+
+------------------------------------------------------------------------
+  7. Output feature matrix
+------------------------------------------------------------------------
+
+------------------------------------------------------------------------
+  8. Missing feature counts
+------------------------------------------------------------------------
+  disaster_type              missing=    0  (0.0%)
+  disaster_subtype           missing=    0  (0.0%)
+  iso                        missing=    0  (0.0%)
+  region                     missing=    0  (0.0%)
+  subregion                  missing=    0  (0.0%)
+  start_month                missing=    2  (0.0%)
+  season                     missing=    0  (0.0%)
+  magnitude                  missing=5,705  (65.0%)
+  magnitude_available        missing=    0  (0.0%)
+
+------------------------------------------------------------------------
+  9. Temporal split counts
+------------------------------------------------------------------------
+  train           6,528  (74.4%)
+  validation      1,145  (13.0%)
+  test            1,101  (12.5%)
+  TOTAL           8,774
+
+------------------------------------------------------------------------
+  10. Saving output
+------------------------------------------------------------------------
+  Saved 8,774 rows x 15 columns
+  Path : D:\ML\realtime-disaster-ml\datasets\processed\emdat_ml_dataset.csv
+
+------------------------------------------------------------------------
+  11. Summary
+------------------------------------------------------------------------
+  Input file          : public_emdat_2026-09-09.xlsx
+  Output file         : emdat_ml_dataset.csv
+  Total output rows   : 8,774
+  Features            : 9
+  Labels              : affected_range, impact_priority
+  affected_range
+    P25 threshold (train) : 800.0
+    P75 threshold (train) : 48,723.2
+  impact_priority
+    Thresholds computed per category from training rows only.
+    Min training obs required: 30
+
+  LEAKAGE PREVENTION CONFIRMED:
+    - All thresholds derived from training split (2000-2019) only.
+    - Outcome columns retained only for labelling; NOT in feature set.
+    - magnitude NaNs never imputed to prevent leakage via imputation.
+
+  Next step: model training (do NOT start yet).
+========================================================================

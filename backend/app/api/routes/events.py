@@ -1,0 +1,216 @@
+"""
+Event-related API routes.
+
+  POST /sync-live-events   — fetch GDACS feed and persist new events
+  GET  /events             — paginated, filterable list (no raw_payload)
+  GET  /events/{event_id}  — single event detail (no raw_payload)
+"""
+
+from __future__ import annotations
+
+import logging
+from datetime import datetime, timezone
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import func, select
+from sqlalchemy.orm import Session
+
+from app.database.models import Event, SyncLog
+from app.database.session import get_db
+from app.ingestion.gdacs import fetch_gdacs_events
+from app.schemas.events import EventListOut, EventOut
+
+logger = logging.getLogger(__name__)
+
+router = APIRouter()
+
+
+# ---------------------------------------------------------------------------
+# POST /sync-live-events
+# ---------------------------------------------------------------------------
+
+# Mutable fields refreshed on every sync for existing events.
+# ID and created_at are intentionally excluded to preserve row identity.
+_UPSERT_FIELDS = (
+    "title", "disaster_type", "country",
+    "latitude", "longitude", "event_time",
+    "source_url", "raw_payload", "fetched_at",
+)
+
+
+@router.post(
+    "/sync-live-events",
+    summary="Fetch live GDACS events and persist new ones",
+    response_description="Counts of fetched, inserted, updated, and skipped events",
+)
+async def sync_live_events(db: Session = Depends(get_db)) -> dict:
+    """
+    1. Fetch the GDACS 7-day RSS feed.
+    2. Deduplicate against existing rows using (source, source_event_id).
+    3. Insert genuinely new events.
+    4. Update mutable fields on already-known events (title, coordinates,
+       event_time, source_url, raw_payload, fetched_at); ID and created_at
+       are never changed.
+    5. Write a SyncLog record regardless of success or failure.
+    6. Return a summary dict.
+    """
+    started_at = datetime.now(timezone.utc)
+    sync_log = SyncLog(source="GDACS", started_at=started_at)
+    db.add(sync_log)
+    db.flush()  # get sync_log.id without committing
+
+    try:
+        # ── 1. Fetch ────────────────────────────────────────────────────
+        raw_events = await fetch_gdacs_events()
+        fetched_count = len(raw_events)
+
+        # ── 2. Load existing Event rows keyed by (source, source_event_id) ─
+        existing: dict[tuple[str, str], Event] = {
+            (row.source, row.source_event_id): row
+            for row in db.execute(select(Event)).scalars().all()
+        }
+
+        # ── 3. Insert new / update existing ────────────────────────────
+        inserted_count = 0
+        updated_count  = 0
+        skipped_count  = 0
+        seen: set[tuple[str, str]] = set()  # guard against intra-batch dupes
+
+        for ev in raw_events:
+            key = (ev["source"], ev["source_event_id"])
+
+            if key in seen:
+                # Exact duplicate within this feed batch — skip silently
+                skipped_count += 1
+                continue
+            seen.add(key)
+
+            existing_row = existing.get(key)
+            if existing_row is None:
+                # Brand-new event — insert it
+                db.add(Event(**ev))
+                inserted_count += 1
+            else:
+                # Already known — refresh mutable fields from latest feed data
+                for field in _UPSERT_FIELDS:
+                    setattr(existing_row, field, ev[field])
+                updated_count += 1
+                skipped_count += 1  # counts toward dedup metric as requested
+
+        # ── 4. Finalise SyncLog ─────────────────────────────────────────
+        sync_log.completed_at   = datetime.now(timezone.utc)
+        sync_log.status         = "success"
+        sync_log.fetched_count  = fetched_count
+        sync_log.inserted_count = inserted_count
+        sync_log.skipped_count  = skipped_count
+
+        db.commit()
+        logger.info(
+            "GDACS sync complete — fetched=%d inserted=%d updated=%d skipped=%d",
+            fetched_count, inserted_count, updated_count, skipped_count,
+        )
+
+    except Exception as exc:
+        db.rollback()
+
+        # Re-open session to persist the failure log
+        try:
+            error_sync_log = SyncLog(
+                source         = "GDACS",
+                started_at     = started_at,
+                completed_at   = datetime.now(timezone.utc),
+                status         = "error",
+                fetched_count  = 0,
+                inserted_count = 0,
+                skipped_count  = 0,
+                error_message  = str(exc),
+            )
+            db.add(error_sync_log)
+            db.commit()
+        except Exception:
+            logger.exception("Failed to write error SyncLog")
+
+        logger.exception("GDACS sync failed: %s", exc)
+        raise HTTPException(status_code=502, detail=f"GDACS sync failed: {exc}") from exc
+
+    return {
+        "status":         "success",
+        "fetched_count":  fetched_count,
+        "inserted_count": inserted_count,
+        "updated_count":  updated_count,
+        "skipped_count":  skipped_count,
+    }
+
+
+# ---------------------------------------------------------------------------
+# GET /events
+# ---------------------------------------------------------------------------
+
+@router.get(
+    "/events",
+    response_model=EventListOut,
+    summary="List disaster events (paginated)",
+)
+def list_events(
+    db:            Session = Depends(get_db),
+    limit:         Annotated[int, Query(ge=1, le=500, description="Max records to return (1-500)")] = 100,
+    offset:        Annotated[int, Query(ge=0, description="Number of records to skip")] = 0,
+    disaster_type: Annotated[str | None, Query(description="Filter by disaster type, e.g. Earthquake")] = None,
+    country:       Annotated[str | None, Query(description="Filter by country name")] = None,
+) -> EventListOut:
+    """
+    Return events ordered by event_time descending (newest first).
+    Supports pagination via limit/offset and optional filters.
+    raw_payload is excluded from the response.
+    """
+    stmt = select(Event)
+
+    if disaster_type:
+        stmt = stmt.where(Event.disaster_type == disaster_type)
+    if country:
+        stmt = stmt.where(Event.country == country)
+
+    # Total count (before pagination)
+    count_stmt = select(func.count()).select_from(stmt.subquery())
+    total: int = db.execute(count_stmt).scalar_one()
+
+    # Ordered, paginated results
+    stmt = (
+        stmt
+        .order_by(Event.event_time.desc().nulls_last(), Event.id.desc())
+        .offset(offset)
+        .limit(limit)
+    )
+    rows = db.execute(stmt).scalars().all()
+
+    return EventListOut(
+        total=total,
+        limit=limit,
+        offset=offset,
+        events=[EventOut.model_validate(row) for row in rows],
+    )
+
+
+# ---------------------------------------------------------------------------
+# GET /events/{event_id}
+# ---------------------------------------------------------------------------
+
+@router.get(
+    "/events/{event_id}",
+    response_model=EventOut,
+    summary="Get a single disaster event by ID",
+)
+def get_event(event_id: int, db: Session = Depends(get_db)) -> EventOut:
+    """
+    Retrieve one event by its internal integer ID.
+    Returns HTTP 404 when no matching event exists.
+    raw_payload is excluded from the response.
+    """
+    stmt = select(Event).where(Event.id == event_id)
+    row = db.execute(stmt).scalar_one_or_none()
+
+    if row is None:
+        raise HTTPException(status_code=404, detail=f"Event {event_id} not found")
+
+    return EventOut.model_validate(row)

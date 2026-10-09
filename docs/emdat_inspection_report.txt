@@ -1,0 +1,364 @@
+========================================================================
+  EM-DAT Dataset Inspection Report
+  File : D:\ML\realtime-disaster-ml\datasets\raw\public_emdat_2026-09-09.xlsx
+========================================================================
+
+------------------------------------------------------------------------
+  1. Sheet names
+------------------------------------------------------------------------
+
+  [0] 'EM-DAT Data'
+  [1] 'EM-DAT Info'
+
+  → Loading sheet: 'EM-DAT Data'
+
+------------------------------------------------------------------------
+  2. Dataset shape
+------------------------------------------------------------------------
+
+  Rows    : 17,022
+  Columns : 47
+
+------------------------------------------------------------------------
+  3. Exact column names
+------------------------------------------------------------------------
+
+    0. DisNo.
+    1. Historic
+    2. Classification Key
+    3. Disaster Group
+    4. Disaster Subgroup
+    5. Disaster Type
+    6. Disaster Subtype
+    7. External IDs
+    8. Event Name
+    9. ISO
+   10. Country
+   11. Subregion
+   12. Region
+   13. Location
+   14. Origin
+   15. Associated Types
+   16. OFDA/BHA Response
+   17. Appeal
+   18. Declaration
+   19. AID Contribution ('000 US$)
+   20. Magnitude
+   21. Magnitude Scale
+   22. Latitude
+   23. Longitude
+   24. River Basin
+   25. Start Year
+   26. Start Month
+   27. Start Day
+   28. End Year
+   29. End Month
+   30. End Day
+   31. Total Deaths
+   32. No. Injured
+   33. No. Affected
+   34. No. Homeless
+   35. Total Affected
+   36. Reconstruction Costs ('000 US$)
+   37. Reconstruction Costs, Adjusted ('000 US$)
+   38. Insured Damage ('000 US$)
+   39. Insured Damage, Adjusted ('000 US$)
+   40. Total Damage ('000 US$)
+   41. Total Damage, Adjusted ('000 US$)
+   42. CPI
+   43. Admin Units
+   44. GADM Admin Units
+   45. Entry Date
+   46. Last Update
+
+------------------------------------------------------------------------
+  4. Column data types (pandas inferred)
+------------------------------------------------------------------------
+
+  DisNo.                                              str
+  Historic                                            str
+  Classification Key                                  str
+  Disaster Group                                      str
+  Disaster Subgroup                                   str
+  Disaster Type                                       str
+  Disaster Subtype                                    str
+  External IDs                                        str
+  Event Name                                          str
+  ISO                                                 str
+  Country                                             str
+  Subregion                                           str
+  Region                                              str
+  Location                                            str
+  Origin                                              str
+  Associated Types                                    str
+  OFDA/BHA Response                                   str
+  Appeal                                              str
+  Declaration                                         str
+  AID Contribution ('000 US$)                         float64
+  Magnitude                                           float64
+  Magnitude Scale                                     str
+  Latitude                                            float64
+  Longitude                                           float64
+  River Basin                                         str
+  Start Year                                          int64
+  Start Month                                         float64
+  Start Day                                           float64
+  End Year                                            int64
+  End Month                                           float64
+  End Day                                             float64
+  Total Deaths                                        float64
+  No. Injured                                         float64
+  No. Affected                                        float64
+  No. Homeless                                        float64
+  Total Affected                                      float64
+  Reconstruction Costs ('000 US$)                     float64
+  Reconstruction Costs, Adjusted ('000 US$)           float64
+  Insured Damage ('000 US$)                           float64
+  Insured Damage, Adjusted ('000 US$)                 float64
+  Total Damage ('000 US$)                             float64
+  Total Damage, Adjusted ('000 US$)                   float64
+  CPI                                                 float64
+  Admin Units                                         str
+  GADM Admin Units                                    str
+  Entry Date                                          str
+  Last Update                                         str
+
+------------------------------------------------------------------------
+  5. Year range
+------------------------------------------------------------------------
+
+  Column  : 'Start Year'
+  Min year: 2000
+  Max year: 2026
+  Total unique years: 27
+
+------------------------------------------------------------------------
+  6. Categorical value counts
+------------------------------------------------------------------------
+
+
+  Disaster Group  ['Disaster Group']  — 2 unique values
+    Natural                                       10,875  ( 63.9%)
+    Technological                                  6,147  ( 36.1%)
+
+  Disaster Type  ['Disaster Type']  — 31 unique values
+    Flood                                          4,284  ( 25.2%)
+    Storm                                          2,916  ( 17.1%)
+    Road                                           2,270  ( 13.3%)
+    Water                                          1,200  (  7.0%)
+    Epidemic                                         895  (  5.3%)
+    Earthquake                                       705  (  4.1%)
+    Extreme temperature                              606  (  3.6%)
+    Mass movement (wet)                              503  (  3.0%)
+    Explosion (Industrial)                           481  (  2.8%)
+    Fire (Miscellaneous)                             467  (  2.7%)
+    Air                                              457  (  2.7%)
+    Drought                                          426  (  2.5%)
+    Wildfire                                         352  (  2.1%)
+    Rail                                             255  (  1.5%)
+    Miscellaneous accident (General)                 201  (  1.2%)
+    Collapse (Miscellaneous)                         171  (  1.0%)
+    Explosion (Miscellaneous)                        170  (  1.0%)
+    Collapse (Industrial)                            165  (  1.0%)
+    Volcanic activity                                134  (  0.8%)
+    Fire (Industrial)                                119  (  0.7%)
+    Industrial accident (General)                    103  (  0.6%)
+    Gas leak                                          36  (  0.2%)
+    Infestation                                       29  (  0.2%)
+    Chemical spill                                    23  (  0.1%)
+    Poisoning                                         21  (  0.1%)
+    Mass movement (dry)                               15  (  0.1%)
+    Glacial lake outburst flood                        8  (  0.0%)
+    Oil spill                                          6  (  0.0%)
+    Radiation                                          2  (  0.0%)
+    Impact                                             1  (  0.0%)
+    Animal incident                                    1  (  0.0%)
+
+  Disaster Subtype  ['Disaster Subtype']  — 63 unique values
+    Road                                           2,270  ( 13.3%)
+    Riverine flood                                 2,031  ( 11.9%)
+    Tropical cyclone                               1,469  (  8.6%)
+    Flood (General)                                1,446  (  8.5%)
+    Water                                          1,200  (  7.0%)
+    Flash flood                                      765  (  4.5%)
+    Ground movement                                  672  (  3.9%)
+    Explosion (Industrial)                           481  (  2.8%)
+    Fire (Miscellaneous)                             467  (  2.7%)
+    Air                                              457  (  2.7%)
+    Bacterial disease                                434  (  2.5%)
+    Drought                                          426  (  2.5%)
+    Landslide (wet)                                  399  (  2.3%)
+    Viral disease                                    362  (  2.1%)
+    Storm (General)                                  352  (  2.1%)
+    Heat wave                                        313  (  1.8%)
+    Severe weather                                   310  (  1.8%)
+    Rail                                             255  (  1.5%)
+    Cold wave                                        216  (  1.3%)
+    Miscellaneous accident (General)                 201  (  1.2%)
+    Forest fire                                      195  (  1.1%)
+    Blizzard/Winter storm                            192  (  1.1%)
+    Tornado                                          175  (  1.0%)
+    Lightning/Thunderstorms                          172  (  1.0%)
+    Collapse (Miscellaneous)                         171  (  1.0%)
+    Explosion (Miscellaneous)                        170  (  1.0%)
+    Collapse (Industrial)                            165  (  1.0%)
+    Extra-tropical storm                             157  (  0.9%)
+    Fire (Industrial)                                119  (  0.7%)
+    Wildfire (General)                               110  (  0.6%)
+    Ash fall                                         105  (  0.6%)
+    Industrial accident (General)                    103  (  0.6%)
+    Infectious disease (General)                      81  (  0.5%)
+    Severe winter conditions                          77  (  0.5%)
+    Avalanche (wet)                                   55  (  0.3%)
+    Hail                                              53  (  0.3%)
+    Land fire (Brush, Bush, Pasture)                  47  (  0.3%)
+    Mudslide                                          45  (  0.3%)
+    Coastal flood                                     42  (  0.2%)
+    Gas leak                                          36  (  0.2%)
+    Tsunami                                           33  (  0.2%)
+    Locust infestation                                27  (  0.2%)
+    Chemical spill                                    23  (  0.1%)
+    Poisoning                                         21  (  0.1%)
+    Sand/Dust storm                                   20  (  0.1%)
+    Parasitic disease                                 18  (  0.1%)
+    Volcanic activity (General)                       12  (  0.1%)
+    Lava flow                                         11  (  0.1%)
+    Landslide (dry)                                   10  (  0.1%)
+    Storm surge                                       10  (  0.1%)
+    Glacial lake outburst flood                        8  (  0.0%)
+    Derecho                                            6  (  0.0%)
+    Oil spill                                          6  (  0.0%)
+    Pyroclastic flow                                   5  (  0.0%)
+    Rockfall (dry)                                     4  (  0.0%)
+    Rockfall (wet)                                     3  (  0.0%)
+    Radiation                                          2  (  0.0%)
+    Worms infestation                                  2  (  0.0%)
+    Lahar                                              1  (  0.0%)
+    Collision                                          1  (  0.0%)
+    Sudden Subsidence (wet)                            1  (  0.0%)
+    Avalanche (dry)                                    1  (  0.0%)
+    Animal incident                                    1  (  0.0%)
+
+------------------------------------------------------------------------
+  7. Missing-value percentages (all columns)
+------------------------------------------------------------------------
+
+  Reconstruction Costs ('000 US$)                      99.8%  ###################
+  Reconstruction Costs, Adjusted ('000 US$)            99.8%  ###################
+  AID Contribution ('000 US$)                          97.1%  ###################
+  Insured Damage, Adjusted ('000 US$)                  95.8%  ###################
+  Insured Damage ('000 US$)                            95.7%  ###################
+  River Basin                                          92.1%  ##################
+  No. Homeless                                         91.9%  ##################
+  Longitude                                            89.1%  #################
+  Latitude                                             89.1%  #################
+  Total Damage, Adjusted ('000 US$)                    80.4%  ################
+  Total Damage ('000 US$)                              80.2%  ################
+  Magnitude                                            79.6%  ###############
+  Associated Types                                     78.0%  ###############
+  Origin                                               74.5%  ##############
+  External IDs                                         74.1%  ##############
+  Event Name                                           68.2%  #############
+  No. Injured                                          62.4%  ############
+  GADM Admin Units                                     53.9%  ##########
+  No. Affected                                         53.7%  ##########
+  Admin Units                                          50.7%  ##########
+  Magnitude Scale                                      37.1%  #######
+  Total Affected                                       25.5%  #####
+  Total Deaths                                         19.4%  ###
+  Start Day                                             9.6%  #
+  End Day                                               9.1%  #
+  Location                                              5.0%  #
+  CPI                                                   1.5%  
+  End Month                                             1.0%  
+  Start Month                                           0.4%  
+  DisNo.                                                0.0%  
+  Historic                                              0.0%  
+  Subregion                                             0.0%  
+  Region                                                0.0%  
+  ISO                                                   0.0%  
+  Country                                               0.0%  
+  Disaster Group                                        0.0%  
+  Disaster Subgroup                                     0.0%  
+  Disaster Type                                         0.0%  
+  Disaster Subtype                                      0.0%  
+  Classification Key                                    0.0%  
+  End Year                                              0.0%  
+  OFDA/BHA Response                                     0.0%  
+  Appeal                                                0.0%  
+  Declaration                                           0.0%  
+  Start Year                                            0.0%  
+  Entry Date                                            0.0%  
+  Last Update                                           0.0%  
+
+------------------------------------------------------------------------
+  8. Column role classification
+------------------------------------------------------------------------
+
+
+  OUTCOME columns (must NOT become model inputs):
+    [OUTCOME]  Total Deaths                                        missing=19.4%
+    [OUTCOME]  Total Affected                                      missing=25.5%
+    [OUTCOME]  Reconstruction Costs ('000 US$)                     missing=99.8%
+    [OUTCOME]  Reconstruction Costs, Adjusted ('000 US$)           missing=99.8%
+    [OUTCOME]  Insured Damage ('000 US$)                           missing=95.7%
+    [OUTCOME]  Insured Damage, Adjusted ('000 US$)                 missing=95.8%
+    [OUTCOME]  Total Damage ('000 US$)                             missing=80.2%
+    [OUTCOME]  Total Damage, Adjusted ('000 US$)                   missing=80.4%
+    [OUTCOME]  CPI                                                 missing=1.5%
+    [OUTCOME]  Entry Date                                          missing=0.0%
+    [OUTCOME]  Last Update                                         missing=0.0%
+
+  INPUT CANDIDATE columns (potential model features):
+    [INPUT?]   Disaster Group                                      missing= 0.0%  unique=2
+    [INPUT?]   Disaster Subgroup                                   missing= 0.0%  unique=9
+    [INPUT?]   Disaster Type                                       missing= 0.0%  unique=31
+    [INPUT?]   Disaster Subtype                                    missing= 0.0%  unique=63
+    [INPUT?]   Event Name                                          missing=68.2%  unique=2270
+    [INPUT?]   ISO                                                 missing= 0.0%  unique=223
+    [INPUT?]   Country                                             missing= 0.0%  unique=223
+    [INPUT?]   Subregion                                           missing= 0.0%  unique=17
+    [INPUT?]   Region                                              missing= 0.0%  unique=5
+    [INPUT?]   Location                                            missing= 5.0%  unique=14513
+    [INPUT?]   Origin                                              missing=74.5%  unique=852
+    [INPUT?]   Associated Types                                    missing=78.0%  unique=141
+    [INPUT?]   Magnitude                                           missing=79.6%  unique=1629
+    [INPUT?]   Magnitude Scale                                     missing=37.1%  unique=6
+    [INPUT?]   Start Year                                          missing= 0.0%  unique=27
+    [INPUT?]   Start Month                                         missing= 0.4%  unique=12
+    [INPUT?]   Start Day                                           missing= 9.6%  unique=31
+    [INPUT?]   End Year                                            missing= 0.0%  unique=29
+    [INPUT?]   End Month                                           missing= 1.0%  unique=12
+    [INPUT?]   End Day                                             missing= 9.1%  unique=31
+
+  UNCLASSIFIED columns (review manually):
+    [REVIEW]   DisNo.
+    [REVIEW]   Historic
+    [REVIEW]   Classification Key
+    [REVIEW]   External IDs
+    [REVIEW]   OFDA/BHA Response
+    [REVIEW]   Appeal
+    [REVIEW]   Declaration
+    [REVIEW]   AID Contribution ('000 US$)
+    [REVIEW]   Latitude
+    [REVIEW]   Longitude
+    [REVIEW]   River Basin
+    [REVIEW]   No. Injured
+    [REVIEW]   No. Affected
+    [REVIEW]   No. Homeless
+    [REVIEW]   Admin Units
+    [REVIEW]   GADM Admin Units
+
+------------------------------------------------------------------------
+  9. Inspection summary
+------------------------------------------------------------------------
+
+  Sheet loaded      : 'EM-DAT Data'
+  Rows              : 17,022
+  Columns           : 47
+  Outcome columns   : 11
+  Input candidates  : 20
+  Unclassified      : 16
+
+  Next step: feature engineering and labelling (do NOT train yet).
+════════════════════════════════════════════════════════════════════════

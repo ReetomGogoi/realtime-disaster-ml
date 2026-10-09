@@ -1,0 +1,401 @@
+========================================================================
+  EM-DAT Supported Hazards Analysis
+  File  : D:\ML\realtime-disaster-ml\datasets\raw\public_emdat_2026-09-09.xlsx
+  Sheet : 'EM-DAT Data'
+  Total rows in file: 17,022
+========================================================================
+
+------------------------------------------------------------------------
+  1. Base filtering
+------------------------------------------------------------------------
+  Natural disaster rows              : 10,875
+  Technological rows excluded        : 6,147
+  Other / unclassified excluded      : 0
+
+  Supported-type rows                : 8,909
+  Unsupported natural-hazard types   : 1,966
+    (breakdown):
+      Epidemic                                        895
+      Extreme temperature                             606
+      Drought                                         426
+      Infestation                                      29
+      Glacial lake outburst flood                       8
+      Impact                                            1
+      Animal incident                                   1
+
+------------------------------------------------------------------------
+  2. Year filter  (2026 excluded — incomplete year)
+------------------------------------------------------------------------
+  Records by year (all supported, including 2026):
+    2000    335
+    2001    321
+    2002    368
+    2003    319
+    2004    321
+    2005    380
+    2006    368
+    2007    375
+    2008    322
+    2009    300
+    2010    347
+    2011    296
+    2012    276
+    2013    312
+    2014    285
+    2015    340
+    2016    299
+    2017    325
+    2018    277
+    2019    362
+    2020    383
+    2021    408
+    2022    354
+    2023    380
+    2024    369
+    2025    352
+    2026    135
+
+  Rows kept (Start Year < 2026)      : 8,774
+  Rows excluded (2026)               : 135
+
+------------------------------------------------------------------------
+  3. Row counts per ML category
+------------------------------------------------------------------------
+  Flood                   4,247   (48.4%)
+  Storm                   2,849   (32.5%)
+  Earthquake                693   (7.9%)
+  Landslide                 508   (5.8%)
+  Wildfire                  344   (3.9%)
+  Volcanic activity         133   (1.5%)
+  TOTAL                   8,774
+
+------------------------------------------------------------------------
+  4. Disaster Subtype breakdown within each ML category
+------------------------------------------------------------------------
+
+  [Earthquake]
+    Ground movement                                  660   (95.2%)
+    Tsunami                                           33   (4.8%)
+
+  [Flood]
+    Riverine flood                                 2,031   (47.8%)
+    Flood (General)                                1,413   (33.3%)
+    Flash flood                                      761   (17.9%)
+    Coastal flood                                     42   (1.0%)
+
+  [Landslide]
+    Landslide (wet)                                  392   (77.2%)
+    Avalanche (wet)                                   54   (10.6%)
+    Mudslide                                          44   (8.7%)
+    Landslide (dry)                                    9   (1.8%)
+    Rockfall (dry)                                     4   (0.8%)
+    Rockfall (wet)                                     3   (0.6%)
+    Sudden Subsidence (wet)                            1   (0.2%)
+    Avalanche (dry)                                    1   (0.2%)
+
+  [Storm]
+    Tropical cyclone                               1,453   (51.0%)
+    Storm (General)                                  339   (11.9%)
+    Severe weather                                   285   (10.0%)
+    Blizzard/Winter storm                            185   (6.5%)
+    Tornado                                          172   (6.0%)
+    Lightning/Thunderstorms                          169   (5.9%)
+    Extra-tropical storm                             157   (5.5%)
+    Hail                                              53   (1.9%)
+    Sand/Dust storm                                   20   (0.7%)
+    Storm surge                                       10   (0.4%)
+    Derecho                                            6   (0.2%)
+
+  [Volcanic activity]
+    Ash fall                                         104   (78.2%)
+    Volcanic activity (General)                       12   (9.0%)
+    Lava flow                                         11   (8.3%)
+    Pyroclastic flow                                   5   (3.8%)
+    Lahar                                              1   (0.8%)
+
+  [Wildfire]
+    Forest fire                                      195   (56.7%)
+    Wildfire (General)                               102   (29.7%)
+    Land fire (Brush, Bush, Pasture)                  47   (13.7%)
+
+------------------------------------------------------------------------
+  5. Outcome missingness per ML category
+------------------------------------------------------------------------
+  Category                     n    Deaths missing   Affected missing   Damage Adj missing
+  ----------------------------------------------------------------------------------
+  Earthquake                 693             34.3%               3.0%                55.6%
+  Flood                    4,247             26.8%               9.6%                71.6%
+  Landslide                  508              3.0%              33.9%                89.4%
+  Storm                    2,849             25.4%              25.7%                50.5%
+  Volcanic activity          133             81.2%               6.8%                85.0%
+  Wildfire                   344             48.8%              22.7%                60.8%
+
+------------------------------------------------------------------------
+  6. Overall outcome availability  (Deaths & Total Affected)
+------------------------------------------------------------------------
+  Both Deaths AND Total Affected     : 5,344   (60.9%)
+  Only Deaths available              : 1,038   (11.8%)
+  Only Total Affected available      : 2,010   (22.9%)
+  Neither available                  :   382   (4.4%)
+
+  NOTE: Missing outcomes are treated as UNKNOWN, never as zero.
+
+------------------------------------------------------------------------
+  7. Outcome distribution  (non-missing values only)
+------------------------------------------------------------------------
+
+  Total Deaths  (all supported categories, 2000-2025, non-missing):
+    P  0:            1.0
+    P 25:            3.0
+    P 50:           10.5
+    P 75:           27.0
+    P 90:           75.0
+    P 95:          154.0
+    P100:      222,570.0
+    n  :          6,382
+
+  Total Affected  (all supported categories, 2000-2025, non-missing):
+    P  0:            1.0
+    P 25:          750.0
+    P 50:        6,000.0
+    P 75:       50,000.0
+    P 90:      331,373.9
+    P 95:    1,004,181.7
+    P100:  150,146,000.0
+    n  :          7,354
+
+  Per-category Total Deaths percentiles:
+
+    [Earthquake]  n_nonmissing=455
+    P  0:            1.0
+    P 25:            2.0
+    P 50:            6.0
+    P 75:           32.5
+    P 90:          299.2
+    P 95:        1,229.2
+    P100:      222,570.0
+    n  :            455
+
+    [Flood]  n_nonmissing=3,109
+    P  0:            1.0
+    P 25:            4.0
+    P 50:           12.0
+    P 75:           31.0
+    P 90:           82.0
+    P 95:          163.2
+    P100:        6,054.0
+    n  :          3,109
+
+    [Landslide]  n_nonmissing=493
+    P  0:            1.0
+    P 25:           12.0
+    P 50:           20.0
+    P 75:           40.0
+    P 90:           80.0
+    P 95:          145.8
+    P100:        1,765.0
+    n  :            493
+
+    [Storm]  n_nonmissing=2,124
+    P  0:            1.0
+    P 25:            3.0
+    P 50:            7.0
+    P 75:           20.0
+    P 90:           50.7
+    P 95:           97.8
+    P100:      138,366.0
+    n  :          2,124
+
+    [Volcanic activity]  n_nonmissing=25
+    P  0:            1.0
+    P 25:            2.0
+    P 50:            7.0
+    P 75:           32.0
+    P 90:          273.2
+    P 95:          426.8
+    P100:          461.0
+    n  :             25
+
+    [Wildfire]  n_nonmissing=176
+    P  0:            1.0
+    P 25:            2.0
+    P 50:            4.0
+    P 75:           14.0
+    P 90:           32.0
+    P 95:           50.8
+    P100:          180.0
+    n  :            176
+
+  Per-category Total Affected percentiles:
+
+    [Earthquake]  n_nonmissing=672
+    P  0:            1.0
+    P 25:          609.5
+    P 50:        5,001.0
+    P 75:       33,262.0
+    P 90:      267,375.8
+    P 95:      656,230.5
+    P100:   45,976,596.0
+    n  :            672
+
+    [Flood]  n_nonmissing=3,838
+    P  0:            2.0
+    P 25:        1,500.0
+    P 50:        9,647.0
+    P 75:       60,000.0
+    P 90:      350,000.0
+    P 95:    1,044,748.6
+    P100:  150,146,000.0
+    n  :          3,838
+
+    [Landslide]  n_nonmissing=336
+    P  0:            1.0
+    P 25:           35.8
+    P 50:          339.0
+    P 75:        3,004.0
+    P 90:       19,008.0
+    P 95:       58,395.2
+    P100:    2,100,000.0
+    n  :            336
+
+    [Storm]  n_nonmissing=2,118
+    P  0:            1.0
+    P 25:          413.2
+    P 50:        5,000.0
+    P 75:       58,410.8
+    P 90:      500,009.0
+    P 95:    1,711,084.3
+    P100:  100,000,000.0
+    n  :          2,118
+
+    [Volcanic activity]  n_nonmissing=124
+    P  0:           15.0
+    P 25:        2,365.0
+    P 50:        9,879.0
+    P 75:       30,500.5
+    P 90:      110,280.0
+    P 95:      228,821.0
+    P100:    1,714,414.0
+    n  :            124
+
+    [Wildfire]  n_nonmissing=266
+    P  0:            1.0
+    P 25:          242.2
+    P 50:        1,024.0
+    P 75:        5,473.0
+    P 90:       36,331.5
+    P 95:       75,034.2
+    P100:   10,002,195.0
+    n  :            266
+
+------------------------------------------------------------------------
+  8. Magnitude & Magnitude Scale per ML category
+------------------------------------------------------------------------
+
+  [Earthquake]  total rows=693  magnitude_missing=2 (0.3%)
+    Scale: Moment Magnitude           rows= 693 (100.0%)
+    P  0:            4.1
+    P 25:            5.6
+    P 50:            6.1
+    P 75:            6.8
+    P 90:            7.6
+    P 95:            7.8
+    P100:            9.1
+    n  :            691
+
+  [Flood]  total rows=4,247  magnitude_missing=2,849 (67.1%)
+    Scale: Km2                        rows=4,247 (100.0%)
+    P  0:            2.0
+    P 25:        5,469.1
+    P 50:       27,785.5
+    P 75:       91,180.0
+    P 90:      238,536.0
+    P 95:      420,340.6
+    P100:    2,857,000.0
+    n  :          1,398
+
+  [Landslide]  total rows=508  magnitude_missing=508 (100.0%)
+    Scale: (missing)                  rows= 508 (100.0%)
+
+  [Storm]  total rows=2,849  magnitude_missing=1,957 (68.7%)
+    Scale: Kph                        rows=2,849 (100.0%)
+    P  0:           16.0
+    P 25:          114.8
+    P 50:          150.0
+    P 75:          204.0
+    P 90:          249.0
+    P 95:          270.0
+    P100:          331.0
+    n  :            892
+
+  [Volcanic activity]  total rows=133  magnitude_missing=133 (100.0%)
+    Scale: (missing)                  rows= 133 (100.0%)
+
+  [Wildfire]  total rows=344  magnitude_missing=256 (74.4%)
+    Scale: Km2                        rows= 344 (100.0%)
+    P  0:            2.0
+    P 25:          118.8
+    P 50:          417.0
+    P 75:        1,390.0
+    P 90:        4,383.0
+    P 95:       19,275.0
+    P100:      680,000.0
+    n  :             88
+
+------------------------------------------------------------------------
+  9. Temporal splits for potential train/val/test
+------------------------------------------------------------------------
+  2000-2019  (train candidate)  :  6,528  (74.4%)
+  2020-2022  (val candidate)  :  1,145  (13.0%)
+  2023-2025  (test candidate)  :  1,101  (12.5%)
+
+  Per-category breakdown by split:
+
+    [Earthquake]  total=693
+      2000-2019  (train candidate)  :    543  (78.4%)
+      2020-2022  (val candidate)  :     75  (10.8%)
+      2023-2025  (test candidate)  :     75  (10.8%)
+
+    [Flood]  total=4,247
+      2000-2019  (train candidate)  :  3,219  (75.8%)
+      2020-2022  (val candidate)  :    601  (14.2%)
+      2023-2025  (test candidate)  :    427  (10.1%)
+
+    [Landslide]  total=508
+      2000-2019  (train candidate)  :    384  (75.6%)
+      2020-2022  (val candidate)  :     48  (9.4%)
+      2023-2025  (test candidate)  :     76  (15.0%)
+
+    [Storm]  total=2,849
+      2000-2019  (train candidate)  :  2,046  (71.8%)
+      2020-2022  (val candidate)  :    360  (12.6%)
+      2023-2025  (test candidate)  :    443  (15.5%)
+
+    [Volcanic activity]  total=133
+      2000-2019  (train candidate)  :    101  (75.9%)
+      2020-2022  (val candidate)  :     18  (13.5%)
+      2023-2025  (test candidate)  :     14  (10.5%)
+
+    [Wildfire]  total=344
+      2000-2019  (train candidate)  :    235  (68.3%)
+      2020-2022  (val candidate)  :     43  (12.5%)
+      2023-2025  (test candidate)  :     66  (19.2%)
+
+------------------------------------------------------------------------
+  10. Duplicate DisNo. check  (within supported set, 2000-2025)
+------------------------------------------------------------------------
+  No duplicate DisNo. values found.
+
+------------------------------------------------------------------------
+  11. Summary
+------------------------------------------------------------------------
+  File                   : public_emdat_2026-09-09.xlsx
+  Sheet                  : 'EM-DAT Data'
+  Total rows in file     : 17,022
+  Natural, supported     : 8,909  (including 2026)
+  Model-dev rows (excl 2026) : 8,774
+  Year range             : 2000 - 2025
+  Supported categories   : Earthquake, Flood, Landslide, Storm, Volcanic activity, Wildfire
+
+  DO NOT train a model yet.  Next step: feature engineering and labelling.
+========================================================================
