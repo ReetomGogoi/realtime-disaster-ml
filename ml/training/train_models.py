@@ -24,10 +24,14 @@ Classifier:
 Outputs:
 - Provisional pipelines saved to backend/models/
 - Validation metrics JSON & confusion matrix PNGs saved to docs/model_evaluation/
+
+With --compare-leaf-sizes, compare leaves 1 and 5 on validation only and save
+docs/model_evaluation/min_samples_leaf_comparison.json; no models or plots saved.
 """
 
 from __future__ import annotations
 
+import argparse
 import json
 import os
 import sys
@@ -146,6 +150,62 @@ def save_confusion_matrix_plot(
     plt.tight_layout()
     plt.savefig(output_path, dpi=300)
     plt.close(fig)
+
+
+def compare_leaf_sizes() -> dict[str, Any]:
+    """Compare leaf sizes on validation only; save no models or plots."""
+    if not DATASET_PATH.exists():
+        raise FileNotFoundError(f"Dataset file not found at: {DATASET_PATH}")
+
+    df = pd.read_csv(DATASET_PATH)
+    train = df[df["temporal_split"] == "train"]
+    validation = df[df["temporal_split"] == "validation"]
+    results: dict[str, Any] = {}
+
+    for target in TARGET_COLUMNS:
+        target_train = train[train[target].notna()]
+        target_validation = validation[validation[target].notna()]
+        if target_train.empty or target_validation.empty:
+            raise ValueError(f"{target}: requires labeled train and validation rows")
+        X_train = target_train[FEATURE_COLS]
+        y_train = target_train[target].astype(str)
+        X_val = target_validation[FEATURE_COLS]
+        y_val = target_validation[target].astype(str)
+        classes = sorted(set(y_train) | set(y_val))
+        results[target] = {
+            "dataset_info": {
+                "train_samples": len(X_train),
+                "val_samples": len(X_val),
+                "classes": classes,
+            },
+            "experiments": {},
+        }
+        for leaf_size in (1, 5):
+            pipeline = build_rf_pipeline()
+            pipeline.set_params(classifier__min_samples_leaf=leaf_size)
+            pipeline.fit(X_train, y_train)
+            predictions = pipeline.predict(X_val)
+            report = classification_report(
+                y_val, predictions, labels=classes, output_dict=True, zero_division=0,
+            )
+            metrics = {
+                "accuracy": float(accuracy_score(y_val, predictions)),
+                "macro_f1": float(f1_score(y_val, predictions, average="macro", zero_division=0)),
+                "weighted_f1": float(f1_score(y_val, predictions, average="weighted", zero_division=0)),
+                "per_class_recall": {label: report[label]["recall"] for label in classes},
+                # Rows are actual classes; columns are predicted classes.
+                "confusion_matrix": confusion_matrix(y_val, predictions, labels=classes).tolist(),
+            }
+            results[target]["experiments"][f"min_samples_leaf_{leaf_size}"] = metrics
+            print(f"\n{target}: min_samples_leaf={leaf_size}")
+            print(json.dumps(metrics, indent=2))
+
+    EVAL_DIR.mkdir(parents=True, exist_ok=True)
+    output_path = EVAL_DIR / "min_samples_leaf_comparison.json"
+    with output_path.open("w", encoding="utf-8") as f:
+        json.dump(results, f, indent=2)
+    print(f"\n[OK] Saved validation-only experiment to: {output_path}")
+    return results
 
 
 def train_and_evaluate_models() -> dict[str, Any]:
@@ -286,4 +346,13 @@ def train_and_evaluate_models() -> dict[str, Any]:
 
 
 if __name__ == "__main__":
-    train_and_evaluate_models()
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--compare-leaf-sizes", action="store_true",
+        help="Compare min_samples_leaf=1 and 5 on validation; save separate JSON only.",
+    )
+    args = parser.parse_args()
+    if args.compare_leaf_sizes:
+        compare_leaf_sizes()
+    else:
+        train_and_evaluate_models()
