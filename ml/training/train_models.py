@@ -27,6 +27,8 @@ Outputs:
 
 With --compare-leaf-sizes, compare leaves 1 and 5 on validation only and save
 docs/model_evaluation/min_samples_leaf_comparison.json; no models or plots saved.
+With --compare-max-depths, compare max_depth=None, 10 and 20 (leaf size 1)
+and save docs/model_evaluation/max_depth_comparison.json only.
 """
 
 from __future__ import annotations
@@ -152,8 +154,10 @@ def save_confusion_matrix_plot(
     plt.close(fig)
 
 
-def compare_leaf_sizes() -> dict[str, Any]:
-    """Compare leaf sizes on validation only; save no models or plots."""
+def compare_rf_parameter(
+    parameter: str, values: tuple[int | None, ...], filename: str,
+) -> dict[str, Any]:
+    """Compare one forest parameter on validation; save no models or plots."""
     if not DATASET_PATH.exists():
         raise FileNotFoundError(f"Dataset file not found at: {DATASET_PATH}")
 
@@ -180,9 +184,9 @@ def compare_leaf_sizes() -> dict[str, Any]:
             },
             "experiments": {},
         }
-        for leaf_size in (1, 5):
+        for value in values:
             pipeline = build_rf_pipeline()
-            pipeline.set_params(classifier__min_samples_leaf=leaf_size)
+            pipeline.set_params(**{f"classifier__{parameter}": value})
             pipeline.fit(X_train, y_train)
             predictions = pipeline.predict(X_val)
             report = classification_report(
@@ -196,16 +200,28 @@ def compare_leaf_sizes() -> dict[str, Any]:
                 # Rows are actual classes; columns are predicted classes.
                 "confusion_matrix": confusion_matrix(y_val, predictions, labels=classes).tolist(),
             }
-            results[target]["experiments"][f"min_samples_leaf_{leaf_size}"] = metrics
-            print(f"\n{target}: min_samples_leaf={leaf_size}")
+            results[target]["experiments"][f"{parameter}_{value}"] = metrics
+            print(f"\n{target}: {parameter}={value}")
             print(json.dumps(metrics, indent=2))
 
     EVAL_DIR.mkdir(parents=True, exist_ok=True)
-    output_path = EVAL_DIR / "min_samples_leaf_comparison.json"
+    output_path = EVAL_DIR / filename
     with output_path.open("w", encoding="utf-8") as f:
         json.dump(results, f, indent=2)
     print(f"\n[OK] Saved validation-only experiment to: {output_path}")
     return results
+
+
+def compare_leaf_sizes() -> dict[str, Any]:
+    return compare_rf_parameter(
+        "min_samples_leaf", (1, 5), "min_samples_leaf_comparison.json",
+    )
+
+
+def compare_max_depths() -> dict[str, Any]:
+    return compare_rf_parameter(
+        "max_depth", (None, 10, 20), "max_depth_comparison.json",
+    )
 
 
 def train_and_evaluate_models() -> dict[str, Any]:
@@ -347,12 +363,19 @@ def train_and_evaluate_models() -> dict[str, Any]:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
+    experiments = parser.add_mutually_exclusive_group()
+    experiments.add_argument(
         "--compare-leaf-sizes", action="store_true",
         help="Compare min_samples_leaf=1 and 5 on validation; save separate JSON only.",
+    )
+    experiments.add_argument(
+        "--compare-max-depths", action="store_true",
+        help="Compare max_depth=None, 10 and 20 on validation; save separate JSON only.",
     )
     args = parser.parse_args()
     if args.compare_leaf_sizes:
         compare_leaf_sizes()
+    elif args.compare_max_depths:
+        compare_max_depths()
     else:
         train_and_evaluate_models()
