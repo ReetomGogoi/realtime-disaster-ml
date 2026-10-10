@@ -29,6 +29,8 @@ With --compare-leaf-sizes, compare leaves 1 and 5 on validation only and save
 docs/model_evaluation/min_samples_leaf_comparison.json; no models or plots saved.
 With --compare-max-depths, compare max_depth=None, 10 and 20 (leaf size 1)
 and save docs/model_evaluation/max_depth_comparison.json only.
+With --compare-class-weights, compare balanced, balanced_subsample and None
+and save docs/model_evaluation/class_weight_comparison.json only.
 """
 
 from __future__ import annotations
@@ -155,7 +157,7 @@ def save_confusion_matrix_plot(
 
 
 def compare_rf_parameter(
-    parameter: str, values: tuple[int | None, ...], filename: str,
+    parameter: str, values: tuple[int | str | None, ...], filename: str,
 ) -> dict[str, Any]:
     """Compare one forest parameter on validation; save no models or plots."""
     if not DATASET_PATH.exists():
@@ -221,6 +223,13 @@ def compare_leaf_sizes() -> dict[str, Any]:
 def compare_max_depths() -> dict[str, Any]:
     return compare_rf_parameter(
         "max_depth", (None, 10, 20), "max_depth_comparison.json",
+    )
+
+
+def compare_class_weights() -> dict[str, Any]:
+    return compare_rf_parameter(
+        "class_weight", ("balanced", "balanced_subsample", None),
+        "class_weight_comparison.json",
     )
 
 
@@ -372,10 +381,16 @@ if __name__ == "__main__":
         "--compare-max-depths", action="store_true",
         help="Compare max_depth=None, 10 and 20 on validation; save separate JSON only.",
     )
+    experiments.add_argument(
+        "--compare-class-weights", action="store_true",
+        help="Compare class_weight=balanced, balanced_subsample and None on validation; save separate JSON only.",
+    )
     args = parser.parse_args()
     if args.compare_leaf_sizes:
         compare_leaf_sizes()
     elif args.compare_max_depths:
         compare_max_depths()
+    elif args.compare_class_weights:
+        compare_class_weights()
     else:
         train_and_evaluate_models()
