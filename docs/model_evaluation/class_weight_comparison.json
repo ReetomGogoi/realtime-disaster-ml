@@ -1,0 +1,190 @@
+{
+  "affected_range": {
+    "dataset_info": {
+      "train_samples": 5432,
+      "val_samples": 979,
+      "classes": [
+        "high",
+        "low",
+        "medium"
+      ]
+    },
+    "experiments": {
+      "class_weight_balanced": {
+        "accuracy": 0.5199182839632278,
+        "macro_f1": 0.503741299928577,
+        "weighted_f1": 0.5172452032636345,
+        "per_class_recall": {
+          "high": 0.37815126050420167,
+          "low": 0.5890909090909091,
+          "medium": 0.5515021459227468
+        },
+        "confusion_matrix": [
+          [
+            90,
+            45,
+            103
+          ],
+          [
+            15,
+            162,
+            98
+          ],
+          [
+            88,
+            121,
+            257
+          ]
+        ]
+      },
+      "class_weight_balanced_subsample": {
+        "accuracy": 0.533197139938713,
+        "macro_f1": 0.5016605029021971,
+        "weighted_f1": 0.524531026345381,
+        "per_class_recall": {
+          "high": 0.31932773109243695,
+          "low": 0.5272727272727272,
+          "medium": 0.6459227467811158
+        },
+        "confusion_matrix": [
+          [
+            76,
+            38,
+            124
+          ],
+          [
+            12,
+            145,
+            118
+          ],
+          [
+            67,
+            98,
+            301
+          ]
+        ]
+      },
+      "class_weight_None": {
+        "accuracy": 0.5342185903983657,
+        "macro_f1": 0.4936073624383183,
+        "weighted_f1": 0.5209285982967631,
+        "per_class_recall": {
+          "high": 0.2815126050420168,
+          "low": 0.5054545454545455,
+          "medium": 0.6802575107296137
+        },
+        "confusion_matrix": [
+          [
+            67,
+            32,
+            139
+          ],
+          [
+            13,
+            139,
+            123
+          ],
+          [
+            60,
+            89,
+            317
+          ]
+        ]
+      }
+    }
+  },
+  "impact_priority": {
+    "dataset_info": {
+      "train_samples": 3961,
+      "val_samples": 681,
+      "classes": [
+        "high",
+        "low",
+        "medium"
+      ]
+    },
+    "experiments": {
+      "class_weight_balanced": {
+        "accuracy": 0.47283406754772395,
+        "macro_f1": 0.46315638365574574,
+        "weighted_f1": 0.47315495782571454,
+        "per_class_recall": {
+          "high": 0.4039408866995074,
+          "low": 0.5766423357664233,
+          "medium": 0.4019607843137255
+        },
+        "confusion_matrix": [
+          [
+            82,
+            55,
+            66
+          ],
+          [
+            32,
+            158,
+            84
+          ],
+          [
+            45,
+            77,
+            82
+          ]
+        ]
+      },
+      "class_weight_balanced_subsample": {
+        "accuracy": 0.4522760646108664,
+        "macro_f1": 0.4434939482925788,
+        "weighted_f1": 0.4529098258266852,
+        "per_class_recall": {
+          "high": 0.4039408866995074,
+          "low": 0.5437956204379562,
+          "medium": 0.37745098039215685
+        },
+        "confusion_matrix": [
+          [
+            82,
+            57,
+            64
+          ],
+          [
+            40,
+            149,
+            85
+          ],
+          [
+            50,
+            77,
+            77
+          ]
+        ]
+      },
+      "class_weight_None": {
+        "accuracy": 0.4566813509544787,
+        "macro_f1": 0.44806388835644156,
+        "weighted_f1": 0.45719936650963455,
+        "per_class_recall": {
+          "high": 0.4236453201970443,
+          "low": 0.5437956204379562,
+          "medium": 0.37254901960784315
+        },
+        "confusion_matrix": [
+          [
+            86,
+            55,
+            62
+          ],
+          [
+            44,
+            149,
+            81
+          ],
+          [
+            51,
+            77,
+            76
+          ]
+        ]
+      }
+    }
+  }
+}

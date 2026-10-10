@@ -1,0 +1,136 @@
+{
+  "affected_range": {
+    "dataset_info": {
+      "train_samples": 5432,
+      "val_samples": 979,
+      "classes": [
+        "high",
+        "low",
+        "medium"
+      ]
+    },
+    "experiments": {
+      "min_samples_leaf_1": {
+        "accuracy": 0.5199182839632278,
+        "macro_f1": 0.503741299928577,
+        "weighted_f1": 0.5172452032636345,
+        "per_class_recall": {
+          "high": 0.37815126050420167,
+          "low": 0.5890909090909091,
+          "medium": 0.5515021459227468
+        },
+        "confusion_matrix": [
+          [
+            90,
+            45,
+            103
+          ],
+          [
+            15,
+            162,
+            98
+          ],
+          [
+            88,
+            121,
+            257
+          ]
+        ]
+      },
+      "min_samples_leaf_5": {
+        "accuracy": 0.4933605720122574,
+        "macro_f1": 0.48634316731536115,
+        "weighted_f1": 0.4920056900975325,
+        "per_class_recall": {
+          "high": 0.41596638655462187,
+          "low": 0.6072727272727273,
+          "medium": 0.4656652360515021
+        },
+        "confusion_matrix": [
+          [
+            99,
+            37,
+            102
+          ],
+          [
+            28,
+            167,
+            80
+          ],
+          [
+            111,
+            138,
+            217
+          ]
+        ]
+      }
+    }
+  },
+  "impact_priority": {
+    "dataset_info": {
+      "train_samples": 3961,
+      "val_samples": 681,
+      "classes": [
+        "high",
+        "low",
+        "medium"
+      ]
+    },
+    "experiments": {
+      "min_samples_leaf_1": {
+        "accuracy": 0.47283406754772395,
+        "macro_f1": 0.46315638365574574,
+        "weighted_f1": 0.47315495782571454,
+        "per_class_recall": {
+          "high": 0.4039408866995074,
+          "low": 0.5766423357664233,
+          "medium": 0.4019607843137255
+        },
+        "confusion_matrix": [
+          [
+            82,
+            55,
+            66
+          ],
+          [
+            32,
+            158,
+            84
+          ],
+          [
+            45,
+            77,
+            82
+          ]
+        ]
+      },
+      "min_samples_leaf_5": {
+        "accuracy": 0.45961820851688695,
+        "macro_f1": 0.44386517548560717,
+        "weighted_f1": 0.45523950082179576,
+        "per_class_recall": {
+          "high": 0.4433497536945813,
+          "low": 0.583941605839416,
+          "medium": 0.3088235294117647
+        },
+        "confusion_matrix": [
+          [
+            90,
+            62,
+            51
+          ],
+          [
+            48,
+            160,
+            66
+          ],
+          [
+            60,
+            81,
+            63
+          ]
+        ]
+      }
+    }
+  }
+}
