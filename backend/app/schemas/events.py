@@ -8,8 +8,25 @@ to keep payloads compact.
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict
+
+
+class TargetPredictionOut(BaseModel):
+    status: Literal[
+        "mapping_incomplete", "unsupported_hazard", "unsupported_for_target",
+        "model_unavailable", "predicted", "inference_error",
+    ]
+    reasons: list[str]
+    predicted_label: str | None = None
+    # Model class probabilities; not verified operational confidence.
+    probabilities: dict[str, float] | None = None
+
+
+class EventMLPredictionOut(BaseModel):
+    affected_range: TargetPredictionOut
+    impact_priority: TargetPredictionOut
 
 
 class EventOut(BaseModel):
@@ -29,6 +46,7 @@ class EventOut(BaseModel):
     source_url:      str | None
     fetched_at:      datetime
     created_at:      datetime
+    ml_prediction: EventMLPredictionOut | None = None
 
 
 class EventListOut(BaseModel):

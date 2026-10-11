@@ -12,18 +12,28 @@ import logging
 from datetime import datetime, timezone
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.database.models import Event, SyncLog
 from app.database.session import get_db
 from app.ingestion.gdacs import fetch_gdacs_events
-from app.schemas.events import EventListOut, EventOut
+from app.schemas.events import EventListOut, EventOut, EventMLPredictionOut
+from app.ml_inference import predict_event
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+
+def _event_response(row: Event, request: Request, include_predictions: bool) -> EventOut:
+    response = EventOut.model_validate(row)
+    if include_predictions:
+        response.ml_prediction = EventMLPredictionOut.model_validate(
+            predict_event(row, getattr(request.app.state, "ml_bundle", None))
+        )
+    return response
 
 
 # ---------------------------------------------------------------------------
@@ -150,14 +160,17 @@ async def sync_live_events(db: Session = Depends(get_db)) -> dict:
 @router.get(
     "/events",
     response_model=EventListOut,
+    response_model_exclude_unset=True,
     summary="List disaster events (paginated)",
 )
 def list_events(
+    request:       Request,
     db:            Session = Depends(get_db),
     limit:         Annotated[int, Query(ge=1, le=500, description="Max records to return (1-500)")] = 100,
     offset:        Annotated[int, Query(ge=0, description="Number of records to skip")] = 0,
     disaster_type: Annotated[str | None, Query(description="Filter by disaster type, e.g. Earthquake")] = None,
     country:       Annotated[str | None, Query(description="Filter by country name")] = None,
+    include_predictions: Annotated[bool, Query(description="Include guarded ML status and, only when eligible, model class probabilities")] = False,
 ) -> EventListOut:
     """
     Return events ordered by event_time descending (newest first).
@@ -188,7 +201,7 @@ def list_events(
         total=total,
         limit=limit,
         offset=offset,
-        events=[EventOut.model_validate(row) for row in rows],
+        events=[_event_response(row, request, include_predictions) for row in rows],
     )
 
 
@@ -199,9 +212,15 @@ def list_events(
 @router.get(
     "/events/{event_id}",
     response_model=EventOut,
+    response_model_exclude_unset=True,
     summary="Get a single disaster event by ID",
 )
-def get_event(event_id: int, db: Session = Depends(get_db)) -> EventOut:
+def get_event(
+    event_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    include_predictions: Annotated[bool, Query(description="Include guarded ML status and, only when eligible, model class probabilities")] = False,
+) -> EventOut:
     """
     Retrieve one event by its internal integer ID.
     Returns HTTP 404 when no matching event exists.
@@ -213,4 +232,4 @@ def get_event(event_id: int, db: Session = Depends(get_db)) -> EventOut:
     if row is None:
         raise HTTPException(status_code=404, detail=f"Event {event_id} not found")
 
-    return EventOut.model_validate(row)
+    return _event_response(row, request, include_predictions)

@@ -7,12 +7,14 @@ from app.database.session import engine
 from app.database.base import Base
 import app.database.models  # noqa: F401 — registers all models with Base
 from app.api.routes.events import router as events_router
+from app.ml_inference import load_model_bundle
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Create database tables on startup (safe: does not drop existing tables)."""
     Base.metadata.create_all(bind=engine)
+    app.state.ml_bundle = load_model_bundle()
     yield
 
 
