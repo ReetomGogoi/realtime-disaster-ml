@@ -15,7 +15,7 @@ import re
 import unicodedata
 import warnings
 from dataclasses import dataclass, field
-from datetime import timezone
+from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 from functools import lru_cache
 from pathlib import Path
@@ -147,12 +147,42 @@ def _country_with_valid_scope(event: Any) -> tuple[str | None, str | None]:
     return country, None
 
 
+def _start_date_with_valid_provenance(
+    event: Any, hazard: str | None,
+) -> tuple[datetime | None, str | None]:
+    """Return one UTC source start date only for provisionally safe hazards."""
+    raw = _value(event, "raw_payload")
+    if not isinstance(raw, Mapping) or "gdacs_fromdate_occurrences" not in raw:
+        return None, "GDACS fromdate occurrence provenance unavailable; month/season unresolved."
+    occurrences = raw["gdacs_fromdate_occurrences"]
+    if not isinstance(occurrences, list):
+        return None, "GDACS fromdate occurrence metadata is invalid; month/season unresolved."
+    if not occurrences:
+        return None, "No GDACS fromdate occurrences were preserved; month/season unresolved."
+    if len(occurrences) > 1:
+        return None, "Multiple GDACS fromdate occurrences make date provenance unresolved."
+    value = occurrences[0]
+    if not isinstance(value, str) or not value.strip():
+        return None, "GDACS fromdate occurrence is empty or invalid; month/season unresolved."
+    try:
+        date = parsedate_to_datetime(value)
+    except (TypeError, ValueError, OverflowError):
+        return None, "GDACS fromdate timestamp is malformed; month/season unresolved."
+    if date.tzinfo is None or date.utcoffset() is None:
+        return None, "GDACS fromdate timestamp has no timezone; month/season unresolved."
+    if date.utcoffset().total_seconds() != 0:
+        return None, "GDACS fromdate timestamp is not GMT/UTC; month/season unresolved."
+    if hazard not in {"Earthquake", "Landslide"}:
+        return None, "GDACS fromdate mapping is unsupported for this hazard; month/season unresolved."
+    return date.astimezone(timezone.utc), None
+
+
 def map_event_features(event: Any) -> MappingResult:
     """Build candidates without inventing geographic, subtype or magnitude data.
 
     Geography is populated only from a unique authoritative historical tuple.
-    Subtype, magnitude policy and event/date correspondence remain unresolved;
-    candidate geography and Unknown/NaN placeholders do not authorize inference.
+    Subtype and magnitude policy remain unresolved; candidate values and
+    Unknown/NaN placeholders do not authorize inference.
     """
     source_type = _value(event, "disaster_type")
     hazard = _HAZARDS.get(source_type) if isinstance(source_type, str) else None
@@ -186,19 +216,14 @@ def map_event_features(event: Any) -> MappingResult:
         "No validated hazard-specific magnitude/unit or missing-magnitude policy.",
     ])
 
-    # Inspect the preserved source start date, never event_time's pubDate fallback.
-    raw = _value(event, "raw_payload")
-    start = raw.get("fromdate") if isinstance(raw, Mapping) else None
-    try:
-        date = parsedate_to_datetime(start) if isinstance(start, str) else None
-        if date is None or date.tzinfo is None or date.utcoffset() is None:
-            raise ValueError("No timezone-aware source start date")
-        month = date.astimezone(timezone.utc).month
+    # Use only the provenance-preserved source field; never any timestamp fallback.
+    date, date_reason = _start_date_with_valid_provenance(event, hazard)
+    if date is not None:
+        month = date.month
         features["start_month"] = month
         features["season"] = _SEASONS[month]
-        reasons.append("Source start-date correspondence to EM-DAT country records is unvalidated.")
-    except (TypeError, ValueError, OverflowError):
-        reasons.append("Verified source start date unavailable; month/season unresolved.")
+    else:
+        reasons.append(date_reason)
 
     status = "unsupported_hazard" if source_type and hazard is None else "mapping_incomplete"
     return MappingResult(features, status, reasons)
