@@ -193,6 +193,10 @@ def _item_to_dict(item: ET.Element) -> dict[str, Any]:
         (element.text or "").strip()
         for element in item.findall("gdacs:country", _NS)
     ]
+    raw_payload["gdacs_fromdate_occurrences"] = [
+        (element.text or "").strip()
+        for element in item.findall("gdacs:fromdate", _NS)
+    ]
 
     return {
         "source":          "GDACS",
