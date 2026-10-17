@@ -34,7 +34,7 @@ from sklearn.metrics import (
     f1_score,
 )
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import OneHotEncoder
+from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -85,7 +85,12 @@ def build_preprocessor() -> ColumnTransformer:
             ("onehot", OneHotEncoder(handle_unknown="ignore", sparse_output=False)),
         ]
     )
-    numeric = Pipeline([("imputer", SimpleImputer(strategy="median"))])
+    numeric = Pipeline(
+        [
+            ("imputer", SimpleImputer(strategy="median")),
+            ("scaler", StandardScaler()),
+        ]
+    )
     return ColumnTransformer(
         [
             ("cat", categorical, list(CATEGORICAL_FEATURES)),
