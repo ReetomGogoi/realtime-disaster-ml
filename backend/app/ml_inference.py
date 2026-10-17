@@ -129,6 +129,24 @@ def resolve_country_geography(country: Any) -> tuple[dict[str, str] | None, str 
     return None, "Country has no exact verified historical match; geography unresolved."
 
 
+def _country_with_valid_scope(event: Any) -> tuple[str | None, str | None]:
+    """Return one preserved source country only when its scope is unambiguous."""
+    raw = _value(event, "raw_payload")
+    if not isinstance(raw, Mapping) or "gdacs_country_occurrences" not in raw:
+        return None, "GDACS event-to-country impact scope remains unvalidated."
+    occurrences = raw["gdacs_country_occurrences"]
+    if not isinstance(occurrences, list):
+        return None, "GDACS country occurrence metadata is invalid; geography unresolved."
+    if not occurrences:
+        return None, "No GDACS country occurrences were preserved; geography unresolved."
+    if len(occurrences) > 1:
+        return None, "Multiple GDACS country occurrences make event-to-country scope unresolved."
+    country = occurrences[0]
+    if not isinstance(country, str) or not country.strip():
+        return None, "GDACS country occurrence missing or not a single country-text value; geography unresolved."
+    return country, None
+
+
 def map_event_features(event: Any) -> MappingResult:
     """Build candidates without inventing geographic, subtype or magnitude data.
 
@@ -154,12 +172,15 @@ def map_event_features(event: Any) -> MappingResult:
         reasons.append("Only GDACS source records are covered by this mapping proposal.")
     if hazard is None:
         reasons.append("Missing or unsupported GDACS hazard category.")
-    geography, geography_reason = resolve_country_geography(_value(event, "country"))
-    if geography is not None:
-        features.update(geography)
-        reasons.append("GDACS event-to-country impact scope remains unvalidated.")
+    scoped_country, scope_reason = _country_with_valid_scope(event)
+    if scope_reason is not None:
+        reasons.append(scope_reason)
     else:
-        reasons.append(geography_reason)
+        geography, geography_reason = resolve_country_geography(scoped_country)
+        if geography is not None:
+            features.update(geography)
+        else:
+            reasons.append(geography_reason)
     reasons.extend([
         "No validated disaster_subtype mapping; Unknown is a placeholder only.",
         "No validated hazard-specific magnitude/unit or missing-magnitude policy.",

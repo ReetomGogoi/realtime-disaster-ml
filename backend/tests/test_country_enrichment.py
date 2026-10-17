@@ -18,9 +18,14 @@ class CountryEnrichmentTests(unittest.TestCase):
     def tearDown(self):
         ml._load_country_geography.cache_clear()
 
-    def event(self, country):
+    def event(self, country, occurrences=...):
+        raw_payload = {"fromdate": "01 Jan 2026 00:00:00 GMT"}
+        if occurrences is ...:
+            raw_payload["gdacs_country_occurrences"] = [country]
+        elif occurrences is not None:
+            raw_payload["gdacs_country_occurrences"] = occurrences
         return {"source": "GDACS", "disaster_type": "Earthquake", "country": country,
-                "raw_payload": {"fromdate": "01 Jan 2026 00:00:00 GMT"}}
+                "raw_payload": raw_payload}
 
     def assert_unresolved(self, country, reason):
         mapped = ml.map_event_features(self.event(country))
@@ -56,8 +61,36 @@ class CountryEnrichmentTests(unittest.TestCase):
         self.assertEqual(set(mapped.features), set(ml.FEATURES))
         self.assertEqual(mapped.features["iso"], "IND")
         self.assertEqual(mapped.status, "mapping_incomplete")
-        self.assertTrue(any("scope remains unvalidated" in reason for reason in mapped.reasons))
+        self.assertFalse(any("country impact scope" in reason for reason in mapped.reasons))
         self.assertFalse(any("No verified region" in reason for reason in mapped.reasons))
+
+    def test_one_country_occurrence_validates_scope_for_geography(self):
+        mapped = ml.map_event_features(self.event("India", ["India"]))
+        self.assertEqual(
+            {name: mapped.features[name] for name in ("iso", "region", "subregion")},
+            {"iso": "IND", "region": "Asia", "subregion": "Southern Asia"},
+        )
+        self.assertFalse(any("scope" in reason.lower() for reason in mapped.reasons))
+
+    def test_multiple_different_country_occurrences_block_geography(self):
+        mapped = ml.map_event_features(self.event("India", ["India", "Nepal"]))
+        self.assertTrue(all(mapped.features[name] is None for name in ("iso", "region", "subregion")))
+        self.assertTrue(any("Multiple GDACS country occurrences" in reason for reason in mapped.reasons))
+
+    def test_repeated_identical_country_occurrences_block_geography(self):
+        mapped = ml.map_event_features(self.event("India", ["India", "India"]))
+        self.assertTrue(all(mapped.features[name] is None for name in ("iso", "region", "subregion")))
+        self.assertTrue(any("Multiple GDACS country occurrences" in reason for reason in mapped.reasons))
+
+    def test_empty_country_occurrence_list_does_not_fall_back_to_display_country(self):
+        mapped = ml.map_event_features(self.event("India", []))
+        self.assertTrue(all(mapped.features[name] is None for name in ("iso", "region", "subregion")))
+        self.assertTrue(any("No GDACS country occurrences" in reason for reason in mapped.reasons))
+
+    def test_legacy_event_without_country_occurrences_keeps_scope_blocker(self):
+        mapped = ml.map_event_features(self.event("India", None))
+        self.assertTrue(all(mapped.features[name] is None for name in ("iso", "region", "subregion")))
+        self.assertTrue(any("scope remains unvalidated" in reason for reason in mapped.reasons))
 
     def test_territories_and_historical_codes_are_not_replaced(self):
         for country, code in [("Puerto Rico", "PRI"), ("American Samoa", "ASM"),
