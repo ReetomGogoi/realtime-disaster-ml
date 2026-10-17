@@ -189,6 +189,10 @@ def _item_to_dict(item: ET.Element) -> dict[str, Any]:
         if tag.startswith("{"):
             tag = tag.split("}", 1)[1]
         raw_payload[tag] = child.text
+    raw_payload["gdacs_country_occurrences"] = [
+        (element.text or "").strip()
+        for element in item.findall("gdacs:country", _NS)
+    ]
 
     return {
         "source":          "GDACS",
