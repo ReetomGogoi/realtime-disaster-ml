@@ -8,12 +8,16 @@ operational confidence.
 
 from __future__ import annotations
 
+import csv
 import logging
 import math
+import re
+import unicodedata
 import warnings
 from dataclasses import dataclass, field
 from datetime import timezone
 from email.utils import parsedate_to_datetime
+from functools import lru_cache
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -26,6 +30,9 @@ NUMERIC_FEATURES = ("start_month", "magnitude", "magnitude_available")
 FEATURES = CATEGORICAL_FEATURES + NUMERIC_FEATURES
 TARGETS = ("affected_range", "impact_priority")
 _MODELS_DIR = Path(__file__).resolve().parents[1] / "models"
+_COUNTRY_CROSSWALK = (
+    Path(__file__).resolve().parents[2] / "docs" / "emdat_country_geography_crosswalk.csv"
+)
 _HAZARDS = {
     "Earthquake": "Earthquake", "Flood": "Flood", "Landslide": "Landslide",
     "Wildfire": "Wildfire", "Tropical Cyclone": "Storm",
@@ -55,12 +62,79 @@ def _value(event: Any, name: str) -> Any:
     return event.get(name) if isinstance(event, Mapping) else getattr(event, name, None)
 
 
+def _normalize_country(country: str) -> str:
+    # Preserve punctuation and accents; do not fuzzy-match or transliterate.
+    return " ".join(unicodedata.normalize("NFC", country).split()).casefold()
+
+
+@lru_cache(maxsize=1)
+def _load_country_geography() -> tuple[dict[str, set[tuple[str, str, str]]], str | None]:
+    """Read the authoritative historical snapshot once; never replace its codes.
+
+    No aliases are currently approved. Historical/territory codes are retained
+    rather than rewritten using a current sovereign-country or ISO library.
+    Restart the application after replacing the reviewed crosswalk snapshot.
+    """
+    try:
+        index: dict[str, set[tuple[str, str, str]]] = {}
+        with _COUNTRY_CROSSWALK.open(encoding="utf-8-sig", newline="") as handle:
+            reader = csv.DictReader(handle, strict=True)
+            columns = {"Country", "ISO", "region", "subregion"}
+            if reader.fieldnames is None or set(reader.fieldnames) != columns or len(reader.fieldnames) != 4:
+                raise ValueError("Unexpected geography crosswalk columns")
+            for row in reader:
+                if set(row) != columns or any(not isinstance(v, str) or not v.strip() for v in row.values()):
+                    raise ValueError("Incomplete geography crosswalk row")
+                key = _normalize_country(row["Country"])
+                values = tuple(row[name].strip() for name in ("ISO", "region", "subregion"))
+                index.setdefault(key, set()).add(values)
+        if not index:
+            raise ValueError("Empty geography crosswalk")
+        # An ISO with conflicting geography makes every associated name unsafe.
+        by_iso: dict[str, set[tuple[str, str]]] = {}
+        for tuples in index.values():
+            for iso, region, subregion in tuples:
+                by_iso.setdefault(iso, set()).add((region, subregion))
+        for tuples in index.values():
+            if any(len(by_iso[iso]) != 1 for iso, _, _ in tuples):
+                tuples.clear()
+        return index, None
+    except (OSError, UnicodeError, csv.Error, ValueError):
+        logger.warning("Historical geography crosswalk unavailable or invalid")
+        return {}, "Historical geography crosswalk unavailable or invalid; geography unresolved."
+
+
+def resolve_country_geography(country: Any) -> tuple[dict[str, str] | None, str | None]:
+    """Return the entire unique historical tuple or no geographic features.
+
+    Matching a country identity does not validate a GDACS event's country-impact
+    scope. In particular, no multi-country record is reduced to a first country.
+    """
+    if not isinstance(country, str) or not country.strip():
+        return None, "Country missing or not a single country-text value; geography unresolved."
+    index, error = _load_country_geography()
+    if error:
+        return None, error
+    key = _normalize_country(country)
+    if key in index:
+        tuples = index[key]
+        if len(tuples) != 1:
+            return None, "Ambiguous or conflicting historical country mapping; geography unresolved."
+        iso, region, subregion = next(iter(tuples))
+        return {"iso": iso, "region": region, "subregion": subregion}, None
+    # Check exact names first: valid names may contain commas or 'and'. Do not
+    # split a list to choose one entry, or invent aliases for unknown strings.
+    if re.search(r"[,;/|\r\n]|\s+and\s+|&", country, flags=re.IGNORECASE):
+        return None, "Country text is multi-country or not one exact verified name; geography unresolved."
+    return None, "Country has no exact verified historical match; geography unresolved."
+
+
 def map_event_features(event: Any) -> MappingResult:
     """Build candidates without inventing geographic, subtype or magnitude data.
 
-    Current ingestion has no validated geography/subtype/magnitude crosswalk.
-    Consequently even a supported hazard remains mapping_incomplete in this
-    first stage. Unknown/NaN placeholders are not authorization to predict.
+    Geography is populated only from a unique authoritative historical tuple.
+    Subtype, magnitude policy and event/date correspondence remain unresolved;
+    candidate geography and Unknown/NaN placeholders do not authorize inference.
     """
     source_type = _value(event, "disaster_type")
     hazard = _HAZARDS.get(source_type) if isinstance(source_type, str) else None
@@ -80,10 +154,14 @@ def map_event_features(event: Any) -> MappingResult:
         reasons.append("Only GDACS source records are covered by this mapping proposal.")
     if hazard is None:
         reasons.append("Missing or unsupported GDACS hazard category.")
+    geography, geography_reason = resolve_country_geography(_value(event, "country"))
+    if geography is not None:
+        features.update(geography)
+        reasons.append("GDACS event-to-country impact scope remains unvalidated.")
+    else:
+        reasons.append(geography_reason)
     reasons.extend([
         "No validated disaster_subtype mapping; Unknown is a placeholder only.",
-        "No verified country-to-ISO lookup or country-event scope mapping.",
-        "No verified region or subregion enrichment.",
         "No validated hazard-specific magnitude/unit or missing-magnitude policy.",
     ])
 
