@@ -12,7 +12,7 @@ _VERCEL_POSTGRESQL_SCHEMES = frozenset({"postgresql", "postgresql+psycopg2"})
 def _normalize_postgresql_driver(database_url: str) -> str:
     """Use the installed psycopg2 driver without changing URL credentials or options."""
     scheme, separator, remainder = database_url.partition("://")
-    if separator and scheme.lower() == "postgresql+psycopg":
+    if separator and scheme.lower() in {"postgresql", "postgresql+psycopg"}:
         return f"postgresql+psycopg2://{remainder}"
     return database_url
 

@@ -4,10 +4,19 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from sqlalchemy import create_engine
+
 from app.database.config import resolve_database_url
 
 
 class DatabaseConfigTests(unittest.TestCase):
+    def assert_psycopg2_driver(self, database_url):
+        engine = create_engine(database_url)
+        try:
+            self.assertEqual(engine.dialect.driver, "psycopg2")
+        finally:
+            engine.dispose()
+
     def test_local_default_uses_existing_sqlite_location(self):
         with tempfile.TemporaryDirectory() as folder:
             data_dir = Path(folder) / "backend" / "data"
@@ -40,14 +49,22 @@ class DatabaseConfigTests(unittest.TestCase):
             self.assertEqual(url, configured)
             self.assertFalse(data_dir.exists())
 
-    def test_postgresql_url_never_creates_local_data_directory(self):
+    def test_local_plain_postgresql_url_selects_psycopg2_without_creating_directory(self):
         with tempfile.TemporaryDirectory() as folder:
             data_dir = Path(folder) / "unused"
-            configured = "postgresql://user:password@example.invalid/disasters"
+            configured = (
+                "postgresql://owner:p%40ss@ep-test.neon.tech/neondb"
+                "?sslmode=require&channel_binding=require"
+            )
 
             url = resolve_database_url({"DATABASE_URL": configured}, data_dir)
 
-            self.assertEqual(url, configured)
+            self.assertEqual(
+                url,
+                "postgresql+psycopg2://owner:p%40ss@ep-test.neon.tech/neondb"
+                "?sslmode=require&channel_binding=require",
+            )
+            self.assert_psycopg2_driver(url)
             self.assertFalse(data_dir.exists())
 
     def test_local_neon_psycopg_url_is_normalized_without_creating_directory(self):
@@ -65,6 +82,7 @@ class DatabaseConfigTests(unittest.TestCase):
                 "postgresql+psycopg2://owner:p%40ss@ep-test.neon.tech/neondb"
                 "?sslmode=require&channel_binding=require",
             )
+            self.assert_psycopg2_driver(url)
             self.assertFalse(data_dir.exists())
 
     def test_vercel_requires_database_url(self):
@@ -97,16 +115,24 @@ class DatabaseConfigTests(unittest.TestCase):
 
             self.assertFalse(data_dir.exists())
 
-    def test_vercel_accepts_standard_postgresql_url_without_creating_directory(self):
+    def test_vercel_plain_postgresql_url_uses_installed_psycopg2_driver(self):
         with tempfile.TemporaryDirectory() as folder:
             data_dir = Path(folder) / "must-not-exist"
-            configured = "postgresql://user:password@example.invalid/disasters"
+            configured = (
+                "postgresql://owner:p%40ss@ep-test.neon.tech/neondb"
+                "?sslmode=require&channel_binding=require"
+            )
 
             url = resolve_database_url(
                 {"VERCEL": "1", "DATABASE_URL": configured}, data_dir
             )
 
-            self.assertEqual(url, configured)
+            self.assertEqual(
+                url,
+                "postgresql+psycopg2://owner:p%40ss@ep-test.neon.tech/neondb"
+                "?sslmode=require&channel_binding=require",
+            )
+            self.assert_psycopg2_driver(url)
             self.assertFalse(data_dir.exists())
 
     def test_vercel_neon_psycopg_url_uses_installed_psycopg2_driver(self):
@@ -126,6 +152,7 @@ class DatabaseConfigTests(unittest.TestCase):
                 "postgresql+psycopg2://owner:secret@ep-test.neon.tech/neondb"
                 "?sslmode=require",
             )
+            self.assert_psycopg2_driver(url)
             self.assertFalse(data_dir.exists())
 
     def test_vercel_accepts_explicit_psycopg2_url(self):
@@ -138,6 +165,7 @@ class DatabaseConfigTests(unittest.TestCase):
             )
 
             self.assertEqual(url, configured)
+            self.assert_psycopg2_driver(url)
             self.assertFalse(data_dir.exists())
 
 
