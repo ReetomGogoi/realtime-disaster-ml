@@ -9,9 +9,19 @@ from pathlib import Path
 _VERCEL_POSTGRESQL_SCHEMES = frozenset({"postgresql", "postgresql+psycopg2"})
 
 
+def _normalize_postgresql_driver(database_url: str) -> str:
+    """Use the installed psycopg2 driver without changing URL credentials or options."""
+    scheme, separator, remainder = database_url.partition("://")
+    if separator and scheme.lower() == "postgresql+psycopg":
+        return f"postgresql+psycopg2://{remainder}"
+    return database_url
+
+
 def resolve_database_url(environment: Mapping[str, str], data_dir: Path) -> str:
     """Select hosted PostgreSQL on Vercel or the existing local SQLite file."""
-    configured_url = environment.get("DATABASE_URL", "").strip()
+    configured_url = _normalize_postgresql_driver(
+        environment.get("DATABASE_URL", "").strip()
+    )
     is_vercel = environment.get("VERCEL") == "1"
 
     if is_vercel:
