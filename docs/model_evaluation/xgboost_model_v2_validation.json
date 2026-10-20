@@ -1,0 +1,502 @@
+{
+  "experiment": "validation-only XGBoost Model-v2 comparison",
+  "selection_policy": "per target, highest validation macro_f1 only",
+  "feature_columns": [
+    "disaster_type",
+    "disaster_subtype",
+    "iso",
+    "region",
+    "subregion",
+    "season",
+    "start_month",
+    "magnitude",
+    "magnitude_available"
+  ],
+  "preregistered_configuration_order": [
+    "shallow_depth2",
+    "reference_depth3",
+    "regularized_depth4"
+  ],
+  "software_versions": {
+    "python": "3.12.10",
+    "numpy": "2.5.3",
+    "pandas": "3.0.5",
+    "scikit_learn": "1.9.1",
+    "xgboost": "3.4.1"
+  },
+  "generated_at_utc": "2026-10-17T16:31:24.838364+00:00",
+  "targets": {
+    "affected_range": {
+      "dataset_info": {
+        "train_samples": 5432,
+        "validation_samples": 979,
+        "classes": [
+          "high",
+          "low",
+          "medium"
+        ],
+        "sample_weighting": "sklearn balanced weights derived from this target's training labels only"
+      },
+      "experiments": {
+        "shallow_depth2": {
+          "parameters": {
+            "objective": "multi:softprob",
+            "eval_metric": "mlogloss",
+            "tree_method": "hist",
+            "booster": "gbtree",
+            "random_state": 42,
+            "n_jobs": -1,
+            "verbosity": 0,
+            "n_estimators": 200,
+            "max_depth": 2,
+            "learning_rate": 0.05,
+            "min_child_weight": 1,
+            "subsample": 0.9,
+            "colsample_bytree": 0.9,
+            "reg_alpha": 0.0,
+            "reg_lambda": 1.0,
+            "num_class": 3
+          },
+          "validation_sample_count": 979,
+          "accuracy": 0.48314606741573035,
+          "macro_f1": 0.47462681212666363,
+          "weighted_f1": 0.482728499102121,
+          "per_class": {
+            "high": {
+              "precision": 0.38934426229508196,
+              "recall": 0.39915966386554624,
+              "f1": 0.3941908713692946,
+              "support": 238
+            },
+            "low": {
+              "precision": 0.48773006134969327,
+              "recall": 0.5781818181818181,
+              "f1": 0.5291181364392679,
+              "support": 275
+            },
+            "medium": {
+              "precision": 0.5354523227383863,
+              "recall": 0.4699570815450644,
+              "f1": 0.5005714285714286,
+              "support": 466
+            }
+          },
+          "class_order": [
+            "high",
+            "low",
+            "medium"
+          ],
+          "confusion_matrix": [
+            [
+              95,
+              37,
+              106
+            ],
+            [
+              32,
+              159,
+              84
+            ],
+            [
+              117,
+              130,
+              219
+            ]
+          ],
+          "confusion_matrix_orientation": "rows=actual, columns=predicted"
+        },
+        "reference_depth3": {
+          "parameters": {
+            "objective": "multi:softprob",
+            "eval_metric": "mlogloss",
+            "tree_method": "hist",
+            "booster": "gbtree",
+            "random_state": 42,
+            "n_jobs": -1,
+            "verbosity": 0,
+            "n_estimators": 300,
+            "max_depth": 3,
+            "learning_rate": 0.05,
+            "min_child_weight": 1,
+            "subsample": 0.9,
+            "colsample_bytree": 0.9,
+            "reg_alpha": 0.0,
+            "reg_lambda": 1.0,
+            "num_class": 3
+          },
+          "validation_sample_count": 979,
+          "accuracy": 0.5127681307456589,
+          "macro_f1": 0.5057905484080706,
+          "weighted_f1": 0.5124978925281279,
+          "per_class": {
+            "high": {
+              "precision": 0.44398340248962653,
+              "recall": 0.4495798319327731,
+              "f1": 0.44676409185803756,
+              "support": 238
+            },
+            "low": {
+              "precision": 0.4940119760479042,
+              "recall": 0.6,
+              "f1": 0.541871921182266,
+              "support": 275
+            },
+            "medium": {
+              "precision": 0.5693069306930693,
+              "recall": 0.49356223175965663,
+              "f1": 0.5287356321839081,
+              "support": 466
+            }
+          },
+          "class_order": [
+            "high",
+            "low",
+            "medium"
+          ],
+          "confusion_matrix": [
+            [
+              107,
+              40,
+              91
+            ],
+            [
+              27,
+              165,
+              83
+            ],
+            [
+              107,
+              129,
+              230
+            ]
+          ],
+          "confusion_matrix_orientation": "rows=actual, columns=predicted"
+        },
+        "regularized_depth4": {
+          "parameters": {
+            "objective": "multi:softprob",
+            "eval_metric": "mlogloss",
+            "tree_method": "hist",
+            "booster": "gbtree",
+            "random_state": 42,
+            "n_jobs": -1,
+            "verbosity": 0,
+            "n_estimators": 300,
+            "max_depth": 4,
+            "learning_rate": 0.03,
+            "min_child_weight": 3,
+            "subsample": 0.9,
+            "colsample_bytree": 0.9,
+            "reg_alpha": 0.1,
+            "reg_lambda": 2.0,
+            "num_class": 3
+          },
+          "validation_sample_count": 979,
+          "accuracy": 0.5045965270684372,
+          "macro_f1": 0.49541435430566816,
+          "weighted_f1": 0.5041026113663056,
+          "per_class": {
+            "high": {
+              "precision": 0.423728813559322,
+              "recall": 0.42016806722689076,
+              "f1": 0.4219409282700422,
+              "support": 238
+            },
+            "low": {
+              "precision": 0.49101796407185627,
+              "recall": 0.5963636363636363,
+              "f1": 0.5385878489326765,
+              "support": 275
+            },
+            "medium": {
+              "precision": 0.5623471882640587,
+              "recall": 0.49356223175965663,
+              "f1": 0.5257142857142857,
+              "support": 466
+            }
+          },
+          "class_order": [
+            "high",
+            "low",
+            "medium"
+          ],
+          "confusion_matrix": [
+            [
+              100,
+              41,
+              97
+            ],
+            [
+              29,
+              164,
+              82
+            ],
+            [
+              107,
+              129,
+              230
+            ]
+          ],
+          "confusion_matrix_orientation": "rows=actual, columns=predicted"
+        }
+      },
+      "selection": {
+        "criterion": "highest validation macro_f1 only",
+        "tie_breaker": "first preregistered configuration",
+        "best_configuration": "reference_depth3",
+        "best_validation_macro_f1": 0.5057905484080706
+      },
+      "random_forest_reference": {
+        "validation_sample_count": 979,
+        "class_order": [
+          "high",
+          "low",
+          "medium"
+        ],
+        "accuracy": 0.5199182839632278,
+        "macro_f1": 0.503741299928577,
+        "weighted_f1": 0.5172452032636345
+      },
+      "comparison": {
+        "macro_f1_difference_xgboost_minus_random_forest": 0.002049248479493615,
+        "xgboost_has_higher_macro_f1": true
+      }
+    },
+    "impact_priority": {
+      "dataset_info": {
+        "train_samples": 3961,
+        "validation_samples": 681,
+        "classes": [
+          "high",
+          "low",
+          "medium"
+        ],
+        "sample_weighting": "sklearn balanced weights derived from this target's training labels only"
+      },
+      "experiments": {
+        "shallow_depth2": {
+          "parameters": {
+            "objective": "multi:softprob",
+            "eval_metric": "mlogloss",
+            "tree_method": "hist",
+            "booster": "gbtree",
+            "random_state": 42,
+            "n_jobs": -1,
+            "verbosity": 0,
+            "n_estimators": 200,
+            "max_depth": 2,
+            "learning_rate": 0.05,
+            "min_child_weight": 1,
+            "subsample": 0.9,
+            "colsample_bytree": 0.9,
+            "reg_alpha": 0.0,
+            "reg_lambda": 1.0,
+            "num_class": 3
+          },
+          "validation_sample_count": 681,
+          "accuracy": 0.4684287812041116,
+          "macro_f1": 0.44819923980658344,
+          "weighted_f1": 0.4587600820580883,
+          "per_class": {
+            "high": {
+              "precision": 0.49122807017543857,
+              "recall": 0.41379310344827586,
+              "f1": 0.44919786096256686,
+              "support": 203
+            },
+            "low": {
+              "precision": 0.4887005649717514,
+              "recall": 0.6313868613138686,
+              "f1": 0.5509554140127388,
+              "support": 274
+            },
+            "medium": {
+              "precision": 0.3974358974358974,
+              "recall": 0.30392156862745096,
+              "f1": 0.34444444444444444,
+              "support": 204
+            }
+          },
+          "class_order": [
+            "high",
+            "low",
+            "medium"
+          ],
+          "confusion_matrix": [
+            [
+              84,
+              84,
+              35
+            ],
+            [
+              42,
+              173,
+              59
+            ],
+            [
+              45,
+              97,
+              62
+            ]
+          ],
+          "confusion_matrix_orientation": "rows=actual, columns=predicted"
+        },
+        "reference_depth3": {
+          "parameters": {
+            "objective": "multi:softprob",
+            "eval_metric": "mlogloss",
+            "tree_method": "hist",
+            "booster": "gbtree",
+            "random_state": 42,
+            "n_jobs": -1,
+            "verbosity": 0,
+            "n_estimators": 300,
+            "max_depth": 3,
+            "learning_rate": 0.05,
+            "min_child_weight": 1,
+            "subsample": 0.9,
+            "colsample_bytree": 0.9,
+            "reg_alpha": 0.0,
+            "reg_lambda": 1.0,
+            "num_class": 3
+          },
+          "validation_sample_count": 681,
+          "accuracy": 0.4801762114537445,
+          "macro_f1": 0.4629217032127076,
+          "weighted_f1": 0.47414965448216495,
+          "per_class": {
+            "high": {
+              "precision": 0.5202312138728323,
+              "recall": 0.4433497536945813,
+              "f1": 0.4787234042553192,
+              "support": 203
+            },
+            "low": {
+              "precision": 0.5259938837920489,
+              "recall": 0.6277372262773723,
+              "f1": 0.5723793677204659,
+              "support": 274
+            },
+            "medium": {
+              "precision": 0.35911602209944754,
+              "recall": 0.31862745098039214,
+              "f1": 0.33766233766233766,
+              "support": 204
+            }
+          },
+          "class_order": [
+            "high",
+            "low",
+            "medium"
+          ],
+          "confusion_matrix": [
+            [
+              90,
+              62,
+              51
+            ],
+            [
+              37,
+              172,
+              65
+            ],
+            [
+              46,
+              93,
+              65
+            ]
+          ],
+          "confusion_matrix_orientation": "rows=actual, columns=predicted"
+        },
+        "regularized_depth4": {
+          "parameters": {
+            "objective": "multi:softprob",
+            "eval_metric": "mlogloss",
+            "tree_method": "hist",
+            "booster": "gbtree",
+            "random_state": 42,
+            "n_jobs": -1,
+            "verbosity": 0,
+            "n_estimators": 300,
+            "max_depth": 4,
+            "learning_rate": 0.03,
+            "min_child_weight": 3,
+            "subsample": 0.9,
+            "colsample_bytree": 0.9,
+            "reg_alpha": 0.1,
+            "reg_lambda": 2.0,
+            "num_class": 3
+          },
+          "validation_sample_count": 681,
+          "accuracy": 0.47283406754772395,
+          "macro_f1": 0.45942357397020933,
+          "weighted_f1": 0.46943713165825296,
+          "per_class": {
+            "high": {
+              "precision": 0.5375,
+              "recall": 0.4236453201970443,
+              "f1": 0.4738292011019284,
+              "support": 203
+            },
+            "low": {
+              "precision": 0.515527950310559,
+              "recall": 0.6058394160583942,
+              "f1": 0.5570469798657718,
+              "support": 274
+            },
+            "medium": {
+              "precision": 0.35175879396984927,
+              "recall": 0.3431372549019608,
+              "f1": 0.34739454094292804,
+              "support": 204
+            }
+          },
+          "class_order": [
+            "high",
+            "low",
+            "medium"
+          ],
+          "confusion_matrix": [
+            [
+              86,
+              63,
+              54
+            ],
+            [
+              33,
+              166,
+              75
+            ],
+            [
+              41,
+              93,
+              70
+            ]
+          ],
+          "confusion_matrix_orientation": "rows=actual, columns=predicted"
+        }
+      },
+      "selection": {
+        "criterion": "highest validation macro_f1 only",
+        "tie_breaker": "first preregistered configuration",
+        "best_configuration": "reference_depth3",
+        "best_validation_macro_f1": 0.4629217032127076
+      },
+      "random_forest_reference": {
+        "validation_sample_count": 681,
+        "class_order": [
+          "high",
+          "low",
+          "medium"
+        ],
+        "accuracy": 0.47283406754772395,
+        "macro_f1": 0.46315638365574574,
+        "weighted_f1": 0.47315495782571454
+      },
+      "comparison": {
+        "macro_f1_difference_xgboost_minus_random_forest": -0.00023468044303814883,
+        "xgboost_has_higher_macro_f1": false
+      }
+    }
+  }
+}

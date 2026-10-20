@@ -1,0 +1,511 @@
+{
+  "experiment": "validation-only multinomial Logistic Regression Model-v2 comparison",
+  "selection_policy": "per target, highest validation macro_f1 only",
+  "feature_columns": [
+    "disaster_type",
+    "disaster_subtype",
+    "iso",
+    "region",
+    "subregion",
+    "season",
+    "start_month",
+    "magnitude",
+    "magnitude_available"
+  ],
+  "preregistered_configuration_order": [
+    "l2_c_0_1",
+    "l2_c_1",
+    "l2_c_10"
+  ],
+  "software_versions": {
+    "python": "3.12.10",
+    "numpy": "2.5.3",
+    "pandas": "3.0.5",
+    "scikit_learn": "1.9.1"
+  },
+  "generated_at_utc": "2026-10-17T17:04:49.355924+00:00",
+  "targets": {
+    "affected_range": {
+      "dataset_info": {
+        "train_samples": 5432,
+        "validation_samples": 979,
+        "classes": [
+          "high",
+          "low",
+          "medium"
+        ]
+      },
+      "experiments": {
+        "l2_c_0_1": {
+          "parameters": {
+            "solver": "lbfgs",
+            "penalty": "l2",
+            "class_weight": "balanced",
+            "max_iter": 5000,
+            "tol": 0.0001,
+            "random_state": 42,
+            "C": 0.1,
+            "multiclass_behavior": "multinomial via lbfgs for three classes"
+          },
+          "validation_sample_count": 979,
+          "accuracy": 0.5240040858018387,
+          "macro_f1": 0.5104788446336974,
+          "weighted_f1": 0.5217216335236748,
+          "per_class": {
+            "high": {
+              "precision": 0.4630541871921182,
+              "recall": 0.3949579831932773,
+              "f1": 0.42630385487528344,
+              "support": 238
+            },
+            "low": {
+              "precision": 0.5107692307692308,
+              "recall": 0.6036363636363636,
+              "f1": 0.5533333333333333,
+              "support": 275
+            },
+            "medium": {
+              "precision": 0.5609756097560976,
+              "recall": 0.5429184549356223,
+              "f1": 0.5517993456924755,
+              "support": 466
+            }
+          },
+          "class_order": [
+            "high",
+            "low",
+            "medium"
+          ],
+          "confusion_matrix": [
+            [
+              94,
+              33,
+              111
+            ],
+            [
+              22,
+              166,
+              87
+            ],
+            [
+              87,
+              126,
+              253
+            ]
+          ],
+          "confusion_matrix_orientation": "rows=actual, columns=predicted"
+        },
+        "l2_c_1": {
+          "parameters": {
+            "solver": "lbfgs",
+            "penalty": "l2",
+            "class_weight": "balanced",
+            "max_iter": 5000,
+            "tol": 0.0001,
+            "random_state": 42,
+            "C": 1.0,
+            "multiclass_behavior": "multinomial via lbfgs for three classes"
+          },
+          "validation_sample_count": 979,
+          "accuracy": 0.5342185903983657,
+          "macro_f1": 0.5258779949409301,
+          "weighted_f1": 0.5337818129832621,
+          "per_class": {
+            "high": {
+              "precision": 0.453781512605042,
+              "recall": 0.453781512605042,
+              "f1": 0.453781512605042,
+              "support": 238
+            },
+            "low": {
+              "precision": 0.53125,
+              "recall": 0.6181818181818182,
+              "f1": 0.5714285714285714,
+              "support": 275
+            },
+            "medium": {
+              "precision": 0.5819477434679335,
+              "recall": 0.5257510729613734,
+              "f1": 0.552423900789177,
+              "support": 466
+            }
+          },
+          "class_order": [
+            "high",
+            "low",
+            "medium"
+          ],
+          "confusion_matrix": [
+            [
+              108,
+              33,
+              97
+            ],
+            [
+              26,
+              170,
+              79
+            ],
+            [
+              104,
+              117,
+              245
+            ]
+          ],
+          "confusion_matrix_orientation": "rows=actual, columns=predicted"
+        },
+        "l2_c_10": {
+          "parameters": {
+            "solver": "lbfgs",
+            "penalty": "l2",
+            "class_weight": "balanced",
+            "max_iter": 5000,
+            "tol": 0.0001,
+            "random_state": 42,
+            "C": 10.0,
+            "multiclass_behavior": "multinomial via lbfgs for three classes"
+          },
+          "validation_sample_count": 979,
+          "accuracy": 0.5342185903983657,
+          "macro_f1": 0.5273532431563784,
+          "weighted_f1": 0.5339455378394972,
+          "per_class": {
+            "high": {
+              "precision": 0.4609053497942387,
+              "recall": 0.47058823529411764,
+              "f1": 0.4656964656964657,
+              "support": 238
+            },
+            "low": {
+              "precision": 0.5213414634146342,
+              "recall": 0.6218181818181818,
+              "f1": 0.5671641791044776,
+              "support": 275
+            },
+            "medium": {
+              "precision": 0.5882352941176471,
+              "recall": 0.5150214592274678,
+              "f1": 0.5491990846681922,
+              "support": 466
+            }
+          },
+          "class_order": [
+            "high",
+            "low",
+            "medium"
+          ],
+          "confusion_matrix": [
+            [
+              112,
+              36,
+              90
+            ],
+            [
+              26,
+              171,
+              78
+            ],
+            [
+              105,
+              121,
+              240
+            ]
+          ],
+          "confusion_matrix_orientation": "rows=actual, columns=predicted"
+        }
+      },
+      "selection": {
+        "criterion": "highest validation macro_f1 only",
+        "tie_breaker": "first preregistered configuration",
+        "best_configuration": "l2_c_10",
+        "best_validation_macro_f1": 0.5273532431563784
+      },
+      "references": {
+        "random_forest": {
+          "validation_sample_count": 979,
+          "class_order": [
+            "high",
+            "low",
+            "medium"
+          ],
+          "accuracy": 0.5199182839632278,
+          "macro_f1": 0.503741299928577,
+          "weighted_f1": 0.5172452032636345
+        },
+        "xgboost_best": {
+          "configuration": "reference_depth3",
+          "validation_sample_count": 979,
+          "class_order": [
+            "high",
+            "low",
+            "medium"
+          ],
+          "accuracy": 0.5127681307456589,
+          "macro_f1": 0.5057905484080706,
+          "weighted_f1": 0.5124978925281279
+        },
+        "extra_trees_best": {
+          "configuration": "sqrt_leaf2",
+          "validation_sample_count": 979,
+          "class_order": [
+            "high",
+            "low",
+            "medium"
+          ],
+          "accuracy": 0.5240040858018387,
+          "macro_f1": 0.516811858492,
+          "weighted_f1": 0.5227665146689608
+        }
+      },
+      "comparison": {
+        "macro_f1_difference_logistic_minus_random_forest": 0.02361194322780147,
+        "macro_f1_difference_logistic_minus_xgboost": 0.021562694748307853,
+        "macro_f1_difference_logistic_minus_extra_trees": 0.010541384664378484,
+        "logistic_higher_than_random_forest": true,
+        "logistic_higher_than_xgboost": true,
+        "logistic_higher_than_extra_trees": true
+      }
+    },
+    "impact_priority": {
+      "dataset_info": {
+        "train_samples": 3961,
+        "validation_samples": 681,
+        "classes": [
+          "high",
+          "low",
+          "medium"
+        ]
+      },
+      "experiments": {
+        "l2_c_0_1": {
+          "parameters": {
+            "solver": "lbfgs",
+            "penalty": "l2",
+            "class_weight": "balanced",
+            "max_iter": 5000,
+            "tol": 0.0001,
+            "random_state": 42,
+            "C": 0.1,
+            "multiclass_behavior": "multinomial via lbfgs for three classes"
+          },
+          "validation_sample_count": 681,
+          "accuracy": 0.47577092511013214,
+          "macro_f1": 0.4554235285942603,
+          "weighted_f1": 0.46654709854451987,
+          "per_class": {
+            "high": {
+              "precision": 0.5421686746987951,
+              "recall": 0.4433497536945813,
+              "f1": 0.4878048780487805,
+              "support": 203
+            },
+            "low": {
+              "precision": 0.5028571428571429,
+              "recall": 0.6423357664233577,
+              "f1": 0.5641025641025641,
+              "support": 274
+            },
+            "medium": {
+              "precision": 0.3515151515151515,
+              "recall": 0.28431372549019607,
+              "f1": 0.3143631436314363,
+              "support": 204
+            }
+          },
+          "class_order": [
+            "high",
+            "low",
+            "medium"
+          ],
+          "confusion_matrix": [
+            [
+              90,
+              72,
+              41
+            ],
+            [
+              32,
+              176,
+              66
+            ],
+            [
+              44,
+              102,
+              58
+            ]
+          ],
+          "confusion_matrix_orientation": "rows=actual, columns=predicted"
+        },
+        "l2_c_1": {
+          "parameters": {
+            "solver": "lbfgs",
+            "penalty": "l2",
+            "class_weight": "balanced",
+            "max_iter": 5000,
+            "tol": 0.0001,
+            "random_state": 42,
+            "C": 1.0,
+            "multiclass_behavior": "multinomial via lbfgs for three classes"
+          },
+          "validation_sample_count": 681,
+          "accuracy": 0.4787077826725404,
+          "macro_f1": 0.45856351868177,
+          "weighted_f1": 0.47061222063584307,
+          "per_class": {
+            "high": {
+              "precision": 0.5263157894736842,
+              "recall": 0.4433497536945813,
+              "f1": 0.48128342245989303,
+              "support": 203
+            },
+            "low": {
+              "precision": 0.5222551928783383,
+              "recall": 0.6423357664233577,
+              "f1": 0.5761047463175123,
+              "support": 274
+            },
+            "medium": {
+              "precision": 0.3468208092485549,
+              "recall": 0.29411764705882354,
+              "f1": 0.3183023872679045,
+              "support": 204
+            }
+          },
+          "class_order": [
+            "high",
+            "low",
+            "medium"
+          ],
+          "confusion_matrix": [
+            [
+              90,
+              65,
+              48
+            ],
+            [
+              33,
+              176,
+              65
+            ],
+            [
+              48,
+              96,
+              60
+            ]
+          ],
+          "confusion_matrix_orientation": "rows=actual, columns=predicted"
+        },
+        "l2_c_10": {
+          "parameters": {
+            "solver": "lbfgs",
+            "penalty": "l2",
+            "class_weight": "balanced",
+            "max_iter": 5000,
+            "tol": 0.0001,
+            "random_state": 42,
+            "C": 10.0,
+            "multiclass_behavior": "multinomial via lbfgs for three classes"
+          },
+          "validation_sample_count": 681,
+          "accuracy": 0.47577092511013214,
+          "macro_f1": 0.4570359849686694,
+          "weighted_f1": 0.46846323813079566,
+          "per_class": {
+            "high": {
+              "precision": 0.519774011299435,
+              "recall": 0.45320197044334976,
+              "f1": 0.4842105263157895,
+              "support": 203
+            },
+            "low": {
+              "precision": 0.5196374622356495,
+              "recall": 0.6277372262773723,
+              "f1": 0.5685950413223141,
+              "support": 274
+            },
+            "medium": {
+              "precision": 0.3468208092485549,
+              "recall": 0.29411764705882354,
+              "f1": 0.3183023872679045,
+              "support": 204
+            }
+          },
+          "class_order": [
+            "high",
+            "low",
+            "medium"
+          ],
+          "confusion_matrix": [
+            [
+              92,
+              65,
+              46
+            ],
+            [
+              35,
+              172,
+              67
+            ],
+            [
+              50,
+              94,
+              60
+            ]
+          ],
+          "confusion_matrix_orientation": "rows=actual, columns=predicted"
+        }
+      },
+      "selection": {
+        "criterion": "highest validation macro_f1 only",
+        "tie_breaker": "first preregistered configuration",
+        "best_configuration": "l2_c_1",
+        "best_validation_macro_f1": 0.45856351868177
+      },
+      "references": {
+        "random_forest": {
+          "validation_sample_count": 681,
+          "class_order": [
+            "high",
+            "low",
+            "medium"
+          ],
+          "accuracy": 0.47283406754772395,
+          "macro_f1": 0.46315638365574574,
+          "weighted_f1": 0.47315495782571454
+        },
+        "xgboost_best": {
+          "configuration": "reference_depth3",
+          "validation_sample_count": 681,
+          "class_order": [
+            "high",
+            "low",
+            "medium"
+          ],
+          "accuracy": 0.4801762114537445,
+          "macro_f1": 0.4629217032127076,
+          "weighted_f1": 0.47414965448216495
+        },
+        "extra_trees_best": {
+          "configuration": "wide_leaf2",
+          "validation_sample_count": 681,
+          "class_order": [
+            "high",
+            "low",
+            "medium"
+          ],
+          "accuracy": 0.4669603524229075,
+          "macro_f1": 0.4604212789053623,
+          "weighted_f1": 0.4696008240690251
+        }
+      },
+      "comparison": {
+        "macro_f1_difference_logistic_minus_random_forest": -0.004592864973975763,
+        "macro_f1_difference_logistic_minus_xgboost": -0.004358184530937614,
+        "macro_f1_difference_logistic_minus_extra_trees": -0.0018577602235922974,
+        "logistic_higher_than_random_forest": false,
+        "logistic_higher_than_xgboost": false,
+        "logistic_higher_than_extra_trees": false
+      }
+    }
+  }
+}
