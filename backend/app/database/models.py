@@ -42,7 +42,7 @@ class Event(Base):
     source_event_id: Mapped[str] = mapped_column(String(128), nullable=False)
     title: Mapped[str] = mapped_column(String(512), nullable=False)
     disaster_type: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
-    country: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
+    country: Mapped[str | None] = mapped_column(Text, nullable=True, index=True)
     latitude: Mapped[float | None] = mapped_column(Float, nullable=True)
     longitude: Mapped[float | None] = mapped_column(Float, nullable=True)
     event_time: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
