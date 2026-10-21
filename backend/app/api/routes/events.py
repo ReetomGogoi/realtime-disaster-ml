@@ -9,9 +9,11 @@ Event-related API routes.
 from __future__ import annotations
 
 import logging
+import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
 from typing import Annotated
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -49,6 +51,28 @@ _UPSERT_FIELDS = (
 )
 
 
+def _persist_failed_sync(db: Session, started_at: datetime, exc: Exception) -> None:
+    """Best-effort failure audit after rolling back the active transaction."""
+    db.rollback()
+    try:
+        db.add(
+            SyncLog(
+                source="GDACS",
+                started_at=started_at,
+                completed_at=datetime.now(timezone.utc),
+                status="error",
+                fetched_count=0,
+                inserted_count=0,
+                skipped_count=0,
+                error_message=str(exc),
+            )
+        )
+        db.commit()
+    except Exception:
+        db.rollback()
+        logger.exception("Failed to write error SyncLog")
+
+
 @router.post(
     "/sync-live-events",
     summary="Fetch live GDACS events and persist new ones",
@@ -66,15 +90,38 @@ async def sync_live_events(db: Session = Depends(get_db)) -> dict:
     6. Return a summary dict.
     """
     started_at = datetime.now(timezone.utc)
+
+    # Fetch before the first Session operation so a slow upstream request does
+    # not hold a database connection or transaction open.
+    try:
+        raw_events = await fetch_gdacs_events()
+    except httpx.TimeoutException as exc:
+        _persist_failed_sync(db, started_at, exc)
+        logger.exception("GDACS request timed out")
+        raise HTTPException(
+            status_code=504,
+            detail="GDACS request timed out.",
+        ) from exc
+    except (httpx.HTTPError, ET.ParseError) as exc:
+        _persist_failed_sync(db, started_at, exc)
+        logger.exception("GDACS upstream request or feed parsing failed")
+        raise HTTPException(
+            status_code=502,
+            detail="GDACS upstream request or feed parsing failed.",
+        ) from exc
+    except Exception as exc:
+        _persist_failed_sync(db, started_at, exc)
+        logger.exception("Unexpected GDACS ingestion failure")
+        raise HTTPException(
+            status_code=502,
+            detail="GDACS ingestion failed.",
+        ) from exc
+
+    fetched_count = len(raw_events)
     sync_log = SyncLog(source="GDACS", started_at=started_at)
-    db.add(sync_log)
-    db.flush()  # get sync_log.id without committing
 
     try:
-        # ── 1. Fetch ────────────────────────────────────────────────────
-        raw_events = await fetch_gdacs_events()
-        fetched_count = len(raw_events)
-
+        db.add(sync_log)
         # ── 2. Load existing Event rows keyed by (source, source_event_id) ─
         existing: dict[tuple[str, str], Event] = {
             (row.source, row.source_event_id): row
@@ -122,27 +169,12 @@ async def sync_live_events(db: Session = Depends(get_db)) -> dict:
         )
 
     except Exception as exc:
-        db.rollback()
-
-        # Re-open session to persist the failure log
-        try:
-            error_sync_log = SyncLog(
-                source         = "GDACS",
-                started_at     = started_at,
-                completed_at   = datetime.now(timezone.utc),
-                status         = "error",
-                fetched_count  = 0,
-                inserted_count = 0,
-                skipped_count  = 0,
-                error_message  = str(exc),
-            )
-            db.add(error_sync_log)
-            db.commit()
-        except Exception:
-            logger.exception("Failed to write error SyncLog")
-
-        logger.exception("GDACS sync failed: %s", exc)
-        raise HTTPException(status_code=502, detail=f"GDACS sync failed: {exc}") from exc
+        _persist_failed_sync(db, started_at, exc)
+        logger.exception("GDACS event storage failed")
+        raise HTTPException(
+            status_code=503,
+            detail="GDACS events could not be stored.",
+        ) from exc
 
     return {
         "status":         "success",

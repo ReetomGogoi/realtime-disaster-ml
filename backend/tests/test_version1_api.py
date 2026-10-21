@@ -2,11 +2,13 @@
 
 import os
 import unittest
+import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, patch
 
+import httpx
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, func, select
+from sqlalchemy import create_engine, event as sqlalchemy_event, func, select
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -209,6 +211,139 @@ class Version1ApiRegressionTests(unittest.TestCase):
                 session.execute(select(func.count()).select_from(SyncLog)).scalar_one(),
                 2,
             )
+
+    def test_successful_fetch_finishes_before_database_checkout(self):
+        checkouts = 0
+
+        def record_checkout(*_args):
+            nonlocal checkouts
+            checkouts += 1
+
+        async def fetch_without_database_connection():
+            self.assertEqual(checkouts, 0)
+            return []
+
+        sqlalchemy_event.listen(self.engine, "checkout", record_checkout)
+        try:
+            with patch(
+                "app.api.routes.events.fetch_gdacs_events",
+                new=fetch_without_database_connection,
+            ):
+                response = self.client.post("/sync-live-events")
+        finally:
+            sqlalchemy_event.remove(self.engine, "checkout", record_checkout)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.json(),
+            {
+                "status": "success",
+                "fetched_count": 0,
+                "inserted_count": 0,
+                "updated_count": 0,
+                "skipped_count": 0,
+            },
+        )
+        self.assertGreater(checkouts, 0)
+
+    def test_upstream_timeout_returns_504_without_exposing_details(self):
+        request = httpx.Request("GET", "https://www.gdacs.org/xml/rss_7d.xml")
+        failure = httpx.ReadTimeout(
+            "private timeout diagnostics",
+            request=request,
+        )
+
+        with patch(
+            "app.api.routes.events.fetch_gdacs_events",
+            new=AsyncMock(side_effect=failure),
+        ):
+            response = self.client.post("/sync-live-events")
+
+        self.assertEqual(response.status_code, 504)
+        self.assertEqual(response.json(), {"detail": "GDACS request timed out."})
+        self.assertNotIn("private timeout diagnostics", response.text)
+        self.assert_failed_sync_log("private timeout diagnostics")
+
+    def test_upstream_http_error_returns_502_without_exposing_details(self):
+        request = httpx.Request("GET", "https://www.gdacs.org/xml/rss_7d.xml")
+        upstream_response = httpx.Response(503, request=request)
+        failure = httpx.HTTPStatusError(
+            "private upstream response details",
+            request=request,
+            response=upstream_response,
+        )
+
+        with patch(
+            "app.api.routes.events.fetch_gdacs_events",
+            new=AsyncMock(side_effect=failure),
+        ):
+            response = self.client.post("/sync-live-events")
+
+        self.assertEqual(response.status_code, 502)
+        self.assertEqual(
+            response.json(),
+            {"detail": "GDACS upstream request or feed parsing failed."},
+        )
+        self.assertNotIn("private upstream response details", response.text)
+        self.assert_failed_sync_log("private upstream response details")
+
+    def test_malformed_upstream_xml_returns_502_without_exposing_details(self):
+        failure = ET.ParseError("private malformed XML details")
+
+        with patch(
+            "app.api.routes.events.fetch_gdacs_events",
+            new=AsyncMock(side_effect=failure),
+        ):
+            response = self.client.post("/sync-live-events")
+
+        self.assertEqual(response.status_code, 502)
+        self.assertEqual(
+            response.json(),
+            {"detail": "GDACS upstream request or feed parsing failed."},
+        )
+        self.assertNotIn("private malformed XML details", response.text)
+        self.assert_failed_sync_log("private malformed XML details")
+
+    def test_database_failure_rolls_back_events_and_returns_sanitized_503(self):
+        valid = self.event("EQ:valid")
+        invalid = self.event("EQ:invalid")
+        invalid["title"] = None
+
+        with patch(
+            "app.api.routes.events.fetch_gdacs_events",
+            new=AsyncMock(return_value=[valid, invalid]),
+        ):
+            response = self.client.post("/sync-live-events")
+
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(
+            response.json(),
+            {"detail": "GDACS events could not be stored."},
+        )
+        self.assertNotIn("INSERT INTO", response.text)
+        self.assertNotIn("EQ:invalid", response.text)
+
+        with Session(self.engine) as session:
+            self.assertEqual(
+                session.execute(select(func.count()).select_from(Event)).scalar_one(),
+                0,
+            )
+            logs = session.execute(select(SyncLog)).scalars().all()
+            self.assertEqual(len(logs), 1)
+            self.assertEqual(logs[0].status, "error")
+            self.assertIn("NOT NULL", logs[0].error_message.upper())
+
+    def assert_failed_sync_log(self, internal_detail: str):
+        with Session(self.engine) as session:
+            self.assertEqual(
+                session.execute(select(func.count()).select_from(Event)).scalar_one(),
+                0,
+            )
+            logs = session.execute(select(SyncLog)).scalars().all()
+            self.assertEqual(len(logs), 1)
+            self.assertEqual(logs[0].status, "error")
+            self.assertEqual(logs[0].fetched_count, 0)
+            self.assertIn(internal_detail, logs[0].error_message)
 
 
 if __name__ == "__main__":
