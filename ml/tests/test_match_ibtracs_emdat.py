@@ -266,6 +266,24 @@ class TestLoadersAndPipeline(unittest.TestCase):
             self.assertNotIn("Total Affected", loaded.columns)
             self.assertEqual(set(EMDAT_MATCH_COLUMNS).difference(frame.columns), set())
 
+    def test_emdat_loader_releases_workbook_handle(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "emdat.xlsx"
+            pd.DataFrame([emdat_row()]).to_excel(
+                path,
+                sheet_name="EM-DAT Data",
+                index=False,
+            )
+            loaded = load_emdat_tc(path)
+            self.assertEqual(len(loaded), 1)
+
+            # Windows raises PermissionError [WinError 32] here when the
+            # openpyxl workbook remains open. Deleting it explicitly makes
+            # handle release part of the test instead of an incidental error
+            # during TemporaryDirectory cleanup.
+            path.unlink()
+            self.assertFalse(path.exists())
+
     def test_pipeline_matches_and_mandatorily_groups(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

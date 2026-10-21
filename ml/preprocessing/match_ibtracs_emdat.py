@@ -349,10 +349,20 @@ def try_t4_country_date(
 
 def load_emdat_tc(path: Path) -> pd.DataFrame:
     """Load only non-outcome fields for eligible 2000-2022 tropical cyclones."""
-    workbook = pd.ExcelFile(path, engine="openpyxl")
     preferred = ["EM-DAT Data", "emdat", "data", "EMDAT", "Sheet1"]
-    sheet = next((candidate for candidate in preferred if candidate in workbook.sheet_names), workbook.sheet_names[0])
-    source = workbook.parse(sheet, usecols=lambda name: str(name).strip() in EMDAT_MATCH_COLUMNS)
+    # ExcelFile/openpyxl retains a handle to the workbook until explicitly
+    # closed. Windows prevents TemporaryDirectory cleanup (and file moves or
+    # replacement) while that handle is open, so keep parsing inside the
+    # context manager and release it before processing the DataFrame.
+    with pd.ExcelFile(path, engine="openpyxl") as workbook:
+        sheet = next(
+            (candidate for candidate in preferred if candidate in workbook.sheet_names),
+            workbook.sheet_names[0],
+        )
+        source = workbook.parse(
+            sheet,
+            usecols=lambda name: str(name).strip() in EMDAT_MATCH_COLUMNS,
+        )
     source.columns = [str(column).strip() for column in source.columns]
     missing = set(EMDAT_MATCH_COLUMNS).difference(source.columns)
     if missing:
