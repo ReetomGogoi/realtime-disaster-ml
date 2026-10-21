@@ -10,6 +10,7 @@ unsupported because IBTrACS does not identify affected countries.
 from __future__ import annotations
 
 import csv
+import math
 import re
 import sys
 from collections import defaultdict
@@ -151,9 +152,47 @@ def safe_date(year: Any, month: Any, day: Any) -> date | None:
     try:
         if pd.isna(year) or pd.isna(month) or pd.isna(day):
             return None
-        return date(int(year), int(month), int(day))
+        values = [float(year), float(month), float(day)]
+        if not all(math.isfinite(value) and value.is_integer() for value in values):
+            return None
+        return date(*(int(value) for value in values))
     except (ValueError, TypeError, OverflowError):
         return None
+
+
+def _audit_date_component(value: Any) -> int | str:
+    """Preserve a date component in a CSV-safe audit representation."""
+    if value is None or pd.isna(value):
+        return ""
+    try:
+        numeric = float(value)
+    except (TypeError, ValueError):
+        return str(value).strip()
+    if math.isfinite(numeric) and numeric.is_integer():
+        return int(numeric)
+    return str(value).strip()
+
+
+def validate_event_country_identifiers(data: pd.DataFrame) -> pd.Series:
+    """Return stripped EM-DAT identifiers after fail-closed uniqueness checks."""
+    if "DisNo." not in data.columns:
+        raise ValueError("EM-DAT data missing required event-country identifier column: DisNo.")
+    identifiers = data["DisNo."].map(
+        lambda value: "" if value is None or pd.isna(value) else str(value).strip()
+    )
+    missing_rows = identifiers.index[identifiers.eq("")].tolist()
+    if missing_rows:
+        raise ValueError(
+            "Eligible EM-DAT country records have missing DisNo. identifiers "
+            f"at source row index(es): {missing_rows}"
+        )
+    duplicated = sorted(identifiers[identifiers.duplicated(keep=False)].unique())
+    if duplicated:
+        raise ValueError(
+            "Eligible EM-DAT country records have duplicate DisNo. identifiers: "
+            f"{duplicated}"
+        )
+    return identifiers
 
 
 def parse_ibtracs_date(value: str) -> date | None:
@@ -385,6 +424,7 @@ def load_emdat_tc(path: Path) -> pd.DataFrame:
     data["_iso"] = data["ISO"].fillna("").astype(str).str.strip().str.upper()
     data["_subregion"] = data["Subregion"].apply(normalise_geography)
     data["_split"] = data["_start_year"].map(lambda value: "train" if value <= TRAIN_END else "validation")
+    data["_event_country_id"] = validate_event_country_identifiers(data)
     return data.reset_index(drop=True)
 
 
@@ -395,6 +435,7 @@ def match_emdat_record(
 ) -> dict[str, Any]:
     """Match one prepared EM-DAT row using the audited T2/T3 rules."""
     dis_no = str(row.get("DisNo.", "")).strip()
+    event_country_id = str(row.get("_event_country_id", dis_no)).strip()
     norm_name = normalise_name(row.get("_norm_name", row.get("Event Name")))
     year_value = row.get("_start_year", row.get("Start Year"))
     season = str(int(year_value)) if pd.notna(year_value) else ""
@@ -403,15 +444,26 @@ def match_emdat_record(
     start_date = safe_date(row.get("_start_year", row.get("Start Year")), row.get("_start_month", row.get("Start Month")), row.get("_start_day", row.get("Start Day")))
     end_date = safe_date(row.get("_end_year", row.get("End Year")), row.get("_end_month", row.get("End Month")), row.get("_end_day", row.get("End Day")))
     result: dict[str, Any] = {
-        "dis_no": dis_no, "dis_event_id": "-".join(dis_no.split("-")[:2]),
+        "event_country_id": event_country_id, "dis_no": dis_no,
+        "dis_event_id": "-".join(dis_no.split("-")[:2]),
         "event_name": str(row.get("Event Name", "")).strip(), "norm_name": norm_name,
-        "start_year": season, "country": str(row.get("Country", "")).strip(), "iso": iso,
+        "start_year": _audit_date_component(row.get("_start_year", row.get("Start Year"))),
+        "start_month": _audit_date_component(row.get("_start_month", row.get("Start Month"))),
+        "start_day": _audit_date_component(row.get("_start_day", row.get("Start Day"))),
+        "start_date": start_date.isoformat() if start_date is not None else "",
+        "country": str(row.get("Country", "")).strip(), "iso": iso,
         "subregion": subregion, "split": str(row.get("_split", "")).strip(),
         "external_ids": str(row.get("External IDs", "")).strip(), "match_status": "NO_MATCH",
         "match_tier": "", "match_score": "", "matched_sid": "", "matched_name": "",
         "matched_basin": "", "matched_season": "", "candidate_count": 0,
         "reject_reason": "", "is_high_confidence": False,
     }
+    if not event_country_id:
+        result["reject_reason"] = "missing_event_country_id"
+        return result
+    if event_country_id != dis_no:
+        result["reject_reason"] = "inconsistent_event_country_id"
+        return result
     if not iso or not subregion:
         result["reject_reason"] = "missing_geography"
         return result
@@ -445,13 +497,27 @@ def match_emdat_record(
 
 def group_by_physical_storm(matched_df: pd.DataFrame) -> pd.DataFrame:
     """Validate and group accepted country records to one row per physical SID."""
-    required = {"matched_sid", "matched_name", "matched_basin", "matched_season", "start_year", "split", "country", "iso", "dis_no", "dis_event_id", "match_tier"}
+    required = {"matched_sid", "matched_name", "matched_basin", "matched_season", "start_year", "split", "country", "iso", "event_country_id", "dis_no", "dis_event_id", "match_tier"}
     missing = required.difference(matched_df.columns)
     if missing:
         raise ValueError(f"Matched records missing required columns: {sorted(missing)}")
-    output_columns = ["matched_sid", "storm_name", "basin", "matched_season", "start_year_min", "start_year_max", "split", "country_record_count", "countries", "isos", "dis_nos", "dis_event_ids", "tiers_used"]
+    output_columns = ["matched_sid", "storm_name", "basin", "matched_season", "start_year_min", "start_year_max", "split", "country_record_count", "countries", "isos", "event_country_ids", "dis_nos", "dis_event_ids", "tiers_used"]
     if matched_df.empty:
         return pd.DataFrame(columns=output_columns)
+    event_country_ids = matched_df["event_country_id"].fillna("").astype(str).str.strip()
+    dis_nos = matched_df["dis_no"].fillna("").astype(str).str.strip()
+    if event_country_ids.eq("").any() or dis_nos.eq("").any():
+        raise ValueError("Matched records contain missing event-country identifiers")
+    if not event_country_ids.equals(dis_nos):
+        raise ValueError("Matched records contain inconsistent event_country_id and dis_no values")
+    duplicated_ids = sorted(
+        event_country_ids[event_country_ids.duplicated(keep=False)].unique()
+    )
+    if duplicated_ids:
+        raise ValueError(
+            "Matched records contain duplicate event-country identifiers: "
+            f"{duplicated_ids}"
+        )
     invalid = sorted(sid for sid in matched_df["matched_sid"].astype(str).unique() if not is_supported_sid(sid))
     if invalid:
         raise ValueError(f"Unsupported or missing IBTrACS SID(s): {invalid}")
@@ -464,7 +530,8 @@ def group_by_physical_storm(matched_df: pd.DataFrame) -> pd.DataFrame:
         matched_season=("matched_season", "first"), start_year_min=("start_year", "min"),
         start_year_max=("start_year", "max"), split=("split", "first"),
         country_record_count=("country", "size"), countries=("country", lambda values: "; ".join(sorted(set(values)))),
-        isos=("iso", lambda values: "; ".join(sorted(set(values)))), dis_nos=("dis_no", lambda values: "; ".join(sorted(set(values)))),
+        isos=("iso", lambda values: "; ".join(sorted(set(values)))), event_country_ids=("event_country_id", lambda values: "; ".join(sorted(set(values)))),
+        dis_nos=("dis_no", lambda values: "; ".join(sorted(set(values)))),
         dis_event_ids=("dis_event_id", lambda values: "; ".join(sorted(set(values)))), tiers_used=("match_tier", lambda values: "; ".join(sorted(set(values)))),
     )
     return grouped.reset_index()[output_columns]
@@ -477,7 +544,7 @@ def run_matching_pipeline(emdat_path: Path = EMDAT_PATH, ibtracs_path: Path = IB
     name_season_idx, season_idx = build_ibtracs_indexes(storms)
     audit = pd.DataFrame([match_emdat_record(row, name_season_idx, season_idx) for _, row in emdat.iterrows()])
     if audit.empty:
-        accepted = pd.DataFrame(columns=["matched_sid", "matched_name", "matched_basin", "matched_season", "start_year", "split", "country", "iso", "dis_no", "dis_event_id", "match_tier"])
+        accepted = pd.DataFrame(columns=["matched_sid", "matched_name", "matched_basin", "matched_season", "start_year", "split", "country", "iso", "event_country_id", "dis_no", "dis_event_id", "match_tier"])
     else:
         accepted = audit[audit["is_high_confidence"]].copy()
     return audit, group_by_physical_storm(accepted)

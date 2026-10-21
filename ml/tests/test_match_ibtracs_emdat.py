@@ -29,6 +29,7 @@ from ml.preprocessing.match_ibtracs_emdat import (
     try_t2_exact,
     try_t3_fuzzy,
     try_t4_country_date,
+    validate_event_country_identifiers,
 )
 
 
@@ -79,6 +80,7 @@ def accepted_record(**overrides: object) -> dict[str, object]:
         "split": "train",
         "country": "United States of America",
         "iso": "USA",
+        "event_country_id": "2005-0001-USA",
         "dis_no": "2005-0001-USA",
         "dis_event_id": "2005-0001",
         "match_tier": "T2_exact",
@@ -161,6 +163,19 @@ class TestGuardsAndCompatibility(unittest.TestCase):
         self.assertTrue(storm_overlaps_event(storm, date(2005, 8, 25), date(2005, 8, 30)))
         self.assertFalse(storm_overlaps_event(storm, date(2005, 9, 2), date(2005, 9, 4)))
 
+    def test_identifier_validation_requires_nonempty_unique_dis_no(self) -> None:
+        valid = pd.DataFrame({"DisNo.": [" 2005-0001-USA ", "2005-0001-BHS"]})
+        self.assertEqual(
+            validate_event_country_identifiers(valid).tolist(),
+            ["2005-0001-USA", "2005-0001-BHS"],
+        )
+        with self.assertRaisesRegex(ValueError, "missing DisNo"):
+            validate_event_country_identifiers(pd.DataFrame({"DisNo.": [" "]}))
+        with self.assertRaisesRegex(ValueError, "duplicate DisNo"):
+            validate_event_country_identifiers(
+                pd.DataFrame({"DisNo.": ["2005-0001-USA", "2005-0001-USA"]})
+            )
+
 
 class TestProductionMatchingFunctions(unittest.TestCase):
     def setUp(self) -> None:
@@ -215,22 +230,63 @@ class TestProductionMatchingFunctions(unittest.TestCase):
         self.assertEqual(result["reject_reason"], "missing_geography")
         self.assertFalse(result["is_high_confidence"])
 
+    def test_match_preserves_identifier_and_canonical_start_date(self) -> None:
+        result = match_emdat_record(prepared_event(), self.name_index, self.season_index)
+        self.assertEqual(result["event_country_id"], "2005-0001-USA")
+        self.assertEqual(result["start_year"], 2005)
+        self.assertEqual(result["start_month"], 8)
+        self.assertEqual(result["start_day"], 25)
+        self.assertEqual(result["start_date"], "2005-08-25")
+
+    def test_match_rejects_missing_or_inconsistent_identifier(self) -> None:
+        missing = match_emdat_record(
+            prepared_event(**{"DisNo.": "", "_event_country_id": ""}),
+            self.name_index,
+            self.season_index,
+        )
+        self.assertEqual(missing["reject_reason"], "missing_event_country_id")
+        inconsistent = match_emdat_record(
+            prepared_event(_event_country_id="2005-9999-USA"),
+            self.name_index,
+            self.season_index,
+        )
+        self.assertEqual(inconsistent["reject_reason"], "inconsistent_event_country_id")
+
+    def test_invalid_or_fractional_start_date_is_rejected(self) -> None:
+        invalid = match_emdat_record(
+            prepared_event(_start_month=2, _start_day=30),
+            self.name_index,
+            self.season_index,
+        )
+        self.assertEqual(invalid["reject_reason"], "missing_or_invalid_start_date")
+        self.assertEqual(invalid["start_date"], "")
+        fractional = match_emdat_record(
+            prepared_event(_start_month=8.5),
+            self.name_index,
+            self.season_index,
+        )
+        self.assertEqual(fractional["reject_reason"], "missing_or_invalid_start_date")
+
 
 class TestPhysicalStormGrouping(unittest.TestCase):
     def test_multi_country_records_become_one_physical_storm(self) -> None:
         frame = pd.DataFrame([
             accepted_record(),
-            accepted_record(country="Bahamas", iso="BHS", dis_no="2005-0001-BHS"),
+            accepted_record(country="Bahamas", iso="BHS", event_country_id="2005-0001-BHS", dis_no="2005-0001-BHS"),
         ])
         grouped = group_by_physical_storm(frame)
         self.assertEqual(len(grouped), 1)
         self.assertEqual(grouped.iloc[0]["country_record_count"], 2)
         self.assertEqual(grouped.iloc[0]["isos"], "BHS; USA")
+        self.assertEqual(
+            grouped.iloc[0]["event_country_ids"],
+            "2005-0001-BHS; 2005-0001-USA",
+        )
 
     def test_cross_split_sid_is_rejected(self) -> None:
         frame = pd.DataFrame([
             accepted_record(),
-            accepted_record(split="validation", start_year="2020", dis_no="2020-0001-BHS"),
+            accepted_record(split="validation", start_year="2020", event_country_id="2020-0001-BHS", dis_no="2020-0001-BHS"),
         ])
         with self.assertRaisesRegex(ValueError, "spans temporal splits"):
             group_by_physical_storm(frame)
@@ -238,6 +294,16 @@ class TestPhysicalStormGrouping(unittest.TestCase):
     def test_unsupported_sid_is_rejected(self) -> None:
         with self.assertRaisesRegex(ValueError, "Unsupported"):
             group_by_physical_storm(pd.DataFrame([accepted_record(matched_sid="STORM_001")]))
+
+    def test_inconsistent_or_duplicate_event_country_ids_are_rejected(self) -> None:
+        inconsistent = pd.DataFrame([
+            accepted_record(event_country_id="2005-9999-USA"),
+        ])
+        with self.assertRaisesRegex(ValueError, "inconsistent"):
+            group_by_physical_storm(inconsistent)
+        duplicated = pd.DataFrame([accepted_record(), accepted_record()])
+        with self.assertRaisesRegex(ValueError, "duplicate event-country"):
+            group_by_physical_storm(duplicated)
 
     def test_empty_input_has_grouped_schema(self) -> None:
         empty = pd.DataFrame(columns=accepted_record().keys())
@@ -284,6 +350,22 @@ class TestLoadersAndPipeline(unittest.TestCase):
             path.unlink()
             self.assertFalse(path.exists())
 
+    def test_emdat_loader_rejects_missing_and_duplicate_identifiers(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            missing_path = root / "missing.xlsx"
+            duplicate_path = root / "duplicate.xlsx"
+            pd.DataFrame([emdat_row(**{"DisNo.": ""})]).to_excel(
+                missing_path, sheet_name="EM-DAT Data", index=False
+            )
+            with self.assertRaisesRegex(ValueError, "missing DisNo"):
+                load_emdat_tc(missing_path)
+            pd.DataFrame([emdat_row(), emdat_row()]).to_excel(
+                duplicate_path, sheet_name="EM-DAT Data", index=False
+            )
+            with self.assertRaisesRegex(ValueError, "duplicate DisNo"):
+                load_emdat_tc(duplicate_path)
+
     def test_pipeline_matches_and_mandatorily_groups(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -299,6 +381,11 @@ class TestLoadersAndPipeline(unittest.TestCase):
             ])
             audit, grouped = run_matching_pipeline(emdat_path, ibtracs_path)
             self.assertEqual(int(audit["is_high_confidence"].sum()), 2)
+            self.assertEqual(
+                set(audit["event_country_id"]),
+                {"2005-0001-USA", "2005-0001-BHS"},
+            )
+            self.assertEqual(set(audit["start_date"]), {"2005-08-25"})
             self.assertEqual(len(grouped), 1)
             self.assertEqual(grouped.iloc[0]["country_record_count"], 2)
 
