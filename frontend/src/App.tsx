@@ -91,7 +91,7 @@ export default function App() {
         </div>
         <div className="stat-card stat-card--ml">
           <div className="stat-value stat-ml">⏳</div>
-          <div className="stat-label">ML Model Not Yet Trained</div>
+          <div className="stat-label">LIVE ML PREDICTIONS NOT YET AVAILABLE</div>
         </div>
       </div>
 

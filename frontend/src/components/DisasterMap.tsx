@@ -77,7 +77,7 @@ export default function DisasterMap({ events }: Props) {
               )}
 
               <div className="popup-ml-note">
-                🤖 ML prediction will appear after the historical model is trained.
+                🤖 Historical ML models have been trained locally. Live impact predictions are not yet enabled because real-time feature mapping and inference validation remain incomplete.
               </div>
             </div>
           </Popup>
