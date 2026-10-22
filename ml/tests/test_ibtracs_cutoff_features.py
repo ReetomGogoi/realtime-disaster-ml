@@ -7,6 +7,7 @@ import tempfile
 import unittest
 from datetime import datetime, timezone
 from pathlib import Path
+from unittest.mock import patch
 
 import pandas as pd
 
@@ -22,7 +23,13 @@ from ml.preprocessing.build_ibtracs_cutoff_features import (
     load_ibtracs_observations,
     load_matching_audit,
 )
-from ml.training.ibtracs_cyclone_validation_experiment import load_experiment_rows
+from ml.training.ibtracs_cyclone_validation_experiment import (
+    calculate_metrics,
+    load_experiment_rows,
+    prepare_target_cohort,
+    run_target,
+    summarize_target_cohort,
+)
 
 
 def utc(value: str) -> datetime:
@@ -107,6 +114,7 @@ def complete_feature_row(
     row = {
         "event_country_id": event_country_id,
         "matched_sid": sid,
+        "start_date": f"{event_country_id[:4]}-08-25",
         "temporal_split": split,
         **base,
         "ibtracs_wmo_agency": "hurdat_atl",
@@ -421,6 +429,206 @@ class TestExperimentInputGuards(unittest.TestCase):
             pd.DataFrame(rows).to_csv(path, index=False)
             with self.assertRaisesRegex(ValueError, "spans temporal splits"):
                 load_experiment_rows(path)
+
+    def test_feature_table_rejects_split_year_mismatch(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "features.csv"
+            row = complete_feature_row(
+                "2019-0001-USA", "2019001N12345", "train"
+            )
+            row["start_date"] = "2020-01-01"
+            pd.DataFrame([row]).to_csv(path, index=False)
+            with self.assertRaisesRegex(ValueError, "fixed temporal split"):
+                load_experiment_rows(path)
+
+    def test_feature_table_requires_canonical_complete_start_date(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "features.csv"
+            for invalid in ("", "2019-8-5", "2019-02-30"):
+                with self.subTest(invalid=invalid):
+                    row = complete_feature_row(
+                        "2019-0001-USA", "2019001N12345", "train"
+                    )
+                    row["start_date"] = invalid
+                    pd.DataFrame([row]).to_csv(path, index=False)
+                    with self.assertRaisesRegex(ValueError, "canonical"):
+                        load_experiment_rows(path)
+
+    def test_feature_table_rejects_blank_identifiers(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "features.csv"
+            row = complete_feature_row(
+                "2019-0001-USA", "2019001N12345", "train"
+            )
+            row["event_country_id"] = "   "
+            pd.DataFrame([row]).to_csv(path, index=False)
+            with self.assertRaisesRegex(ValueError, "event_country_id"):
+                load_experiment_rows(path)
+
+            row = complete_feature_row(
+                "2019-0001-USA", "2019001N12345", "train"
+            )
+            row["matched_sid"] = "   "
+            pd.DataFrame([row]).to_csv(path, index=False)
+            with self.assertRaisesRegex(ValueError, "matched_sid"):
+                load_experiment_rows(path)
+
+    def test_same_physical_storm_can_have_multiple_country_rows(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "features.csv"
+            rows = [
+                complete_feature_row(
+                    "2019-0001-USA", "2019001N12345", "train"
+                ),
+                complete_feature_row(
+                    "2019-0001-BHS", "2019001N12345", "train"
+                ),
+                complete_feature_row(
+                    "2020-0001-USA", "2020001N12345", "validation"
+                ),
+            ]
+            pd.DataFrame(rows).to_csv(path, index=False)
+            loaded = load_experiment_rows(path)
+            self.assertEqual(len(loaded), 3)
+            train_sids = loaded.loc[
+                loaded["temporal_split"].eq("train"), "matched_sid"
+            ]
+            self.assertEqual(
+                int(train_sids.nunique()),
+                1,
+            )
+
+
+class TestCycloneValidationReliability(unittest.TestCase):
+    @staticmethod
+    def cohort_frame() -> pd.DataFrame:
+        specifications = [
+            ("2018-0001-USA", "2018001N12345", "train", "high", "low"),
+            ("2018-0002-USA", "2018002N12345", "train", "low", "medium"),
+            ("2019-0003-USA", "2019003N12345", "train", "medium", "high"),
+            ("2019-0004-USA", "2019004N12345", "train", None, "low"),
+            ("2020-0001-USA", "2020001N12345", "validation", "high", "low"),
+            ("2021-0002-USA", "2021002N12345", "validation", "low", "medium"),
+            ("2022-0003-USA", "2022003N12345", "validation", "medium", "high"),
+            ("2022-0004-USA", "2022004N12345", "validation", None, "low"),
+        ]
+        rows = []
+        for event_id, sid, split, affected, priority in specifications:
+            row = complete_feature_row(event_id, sid, split)
+            row["affected_range"] = affected
+            row["impact_priority"] = priority
+            rows.append(row)
+        rows[1]["ibtracs_wmo_wind_knots"] = float("nan")
+        rows[4]["ibtracs_wmo_agency"] = ""
+        return pd.DataFrame(rows)
+
+    def test_target_cohort_uses_target_specific_label_availability(self) -> None:
+        frame = self.cohort_frame()
+        affected_train, affected_validation, _, _, _ = prepare_target_cohort(
+            frame, "affected_range"
+        )
+        priority_train, priority_validation, _, _, _ = prepare_target_cohort(
+            frame, "impact_priority"
+        )
+        self.assertEqual((len(affected_train), len(affected_validation)), (3, 3))
+        self.assertEqual((len(priority_train), len(priority_validation)), (4, 4))
+        self.assertFalse(
+            affected_train["ibtracs_wmo_wind_knots"].notna().all()
+        )
+
+    def test_cohort_summary_audits_imbalance_missingness_and_records(self) -> None:
+        frame = self.cohort_frame()
+        train, validation, _, _, classes = prepare_target_cohort(
+            frame, "impact_priority"
+        )
+        summary = summarize_target_cohort(
+            frame, "impact_priority", train, validation, classes
+        )
+        self.assertEqual(
+            summary["class_distribution"]["train"],
+            {"high": 1, "low": 2, "medium": 1},
+        )
+        self.assertEqual(
+            summary["excluded_missing_target"],
+            {"train": 0, "validation": 0},
+        )
+        self.assertEqual(
+            summary["missing_features"]["train"]["ibtracs_wmo_wind_knots"],
+            1,
+        )
+        self.assertEqual(
+            summary["missing_features"]["validation"]["ibtracs_wmo_agency"],
+            1,
+        )
+        reversed_summary = summarize_target_cohort(
+            frame,
+            "impact_priority",
+            train.iloc[::-1],
+            validation.iloc[::-1],
+            classes,
+        )
+        self.assertEqual(
+            summary["record_fingerprints"],
+            reversed_summary["record_fingerprints"],
+        )
+
+    def test_metrics_include_all_required_values_and_orientation(self) -> None:
+        metrics = calculate_metrics(
+            pd.Series(["high", "low", "medium", "medium"]),
+            pd.Series(["high", "medium", "medium", "low"]).to_numpy(),
+            ["high", "low", "medium"],
+        )
+        self.assertEqual(metrics["validation_sample_count"], 4)
+        self.assertAlmostEqual(metrics["accuracy"], 0.5)
+        self.assertAlmostEqual(metrics["balanced_accuracy"], 0.5)
+        self.assertAlmostEqual(metrics["macro_f1"], 0.5)
+        self.assertAlmostEqual(metrics["weighted_f1"], 0.5)
+        self.assertEqual(
+            metrics["confusion_matrix"],
+            [[1, 0, 0], [0, 0, 1], [0, 1, 1]],
+        )
+        self.assertEqual(
+            metrics["confusion_matrix_orientation"],
+            "rows=actual, columns=predicted",
+        )
+        self.assertEqual(metrics["per_class"]["medium"]["support"], 2)
+        self.assertAlmostEqual(metrics["per_class"]["medium"]["precision"], 0.5)
+        self.assertAlmostEqual(metrics["per_class"]["medium"]["recall"], 0.5)
+        self.assertAlmostEqual(metrics["per_class"]["medium"]["f1"], 0.5)
+
+    def test_metrics_reject_mismatched_lengths_and_unknown_classes(self) -> None:
+        with self.assertRaisesRegex(ValueError, "equal nonempty"):
+            calculate_metrics(
+                pd.Series(["high"]),
+                pd.Series([], dtype=str).to_numpy(),
+                ["high", "low", "medium"],
+            )
+        with self.assertRaisesRegex(ValueError, "outside class_order"):
+            calculate_metrics(
+                pd.Series(["high"]),
+                pd.Series(["unknown"]).to_numpy(),
+                ["high", "low", "medium"],
+            )
+
+    def test_all_model_results_record_the_same_target_cohort(self) -> None:
+        class StubEstimator:
+            def fit(self, features: object, labels: pd.Series) -> "StubEstimator":
+                return self
+
+            def predict(self, features: object) -> list[str]:
+                return ["high"] * len(features)  # type: ignore[arg-type]
+
+        frame = self.cohort_frame()
+        module = "ml.training.ibtracs_cyclone_validation_experiment"
+        with patch(f"{module}.DummyClassifier", return_value=StubEstimator()), patch(
+            f"{module}.build_rf_pipeline", return_value=StubEstimator()
+        ):
+            result = run_target(frame, "impact_priority")
+        expected_fingerprints = result["cohort"]["record_fingerprints"]
+        for model in result["models"].values():
+            self.assertEqual(model["training_sample_count"], 4)
+            self.assertEqual(model["validation_sample_count"], 4)
+            self.assertEqual(model["cohort_fingerprints"], expected_fingerprints)
 
 
 if __name__ == "__main__":
