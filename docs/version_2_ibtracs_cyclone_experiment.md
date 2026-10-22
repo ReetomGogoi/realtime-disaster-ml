@@ -102,6 +102,22 @@ datasets/processed/v2_ibtracs_cyclone_validation.json
 validation JSON reports, separately for each target, accuracy, macro F1,
 weighted F1, balanced accuracy, per-class precision/recall/F1/support, class
 order, and a confusion matrix whose rows are actual and columns predicted.
+It also records the exact feature-table SHA-256 and byte size, SHA-256 values
+for the experiment and cutoff-feature source files present when the experiment
+runs, software versions, random seeds, model parameters, typed feature lists,
+and preprocessing settings. For each target, it records the shared
+train/validation event-country counts and identifier fingerprints used by all
+three models, unique physical-SID counts, class distributions, excluded
+missing-label counts, and per-feature missing counts. Machine-specific absolute
+paths are intentionally omitted.
+
+The feature-table hash identifies the generated experiment input exactly. The
+source-code hashes identify the files available when validation runs; they do
+not prove which earlier checkout produced an existing feature table. They also
+do not identify the underlying raw EM-DAT or IBTrACS files. Retain the matching
+and cutoff audits with the locally downloaded source files when archiving a
+run. The experiment rejects a feature table that changes while it is being
+read.
 
 To intentionally replace prior local outputs after reviewing them, add
 `--overwrite` to the builder and experiment commands. No fitted model is saved.

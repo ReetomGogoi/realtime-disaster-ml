@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import csv
+import hashlib
 import tempfile
 import unittest
 from datetime import datetime, timezone
@@ -24,10 +25,14 @@ from ml.preprocessing.build_ibtracs_cutoff_features import (
     load_matching_audit,
 )
 from ml.training.ibtracs_cyclone_validation_experiment import (
+    artifact_metadata,
     calculate_metrics,
+    load_experiment_input,
     load_experiment_rows,
     prepare_target_cohort,
+    run_experiment,
     run_target,
+    source_code_metadata,
     summarize_target_cohort,
 )
 
@@ -410,6 +415,24 @@ class TestCutoffFeatures(unittest.TestCase):
 
 
 class TestExperimentInputGuards(unittest.TestCase):
+    def test_artifact_metadata_hashes_exact_bytes_without_absolute_path(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "features.csv"
+            content = b"event_country_id,matched_sid\nexample,sid\n"
+            path.write_bytes(content)
+            metadata = artifact_metadata(
+                path, reported_path="v2_ibtracs_cyclone_features.csv"
+            )
+            self.assertEqual(
+                metadata,
+                {
+                    "path": "v2_ibtracs_cyclone_features.csv",
+                    "size_bytes": len(content),
+                    "sha256": hashlib.sha256(content).hexdigest(),
+                },
+            )
+            self.assertNotIn(directory, str(metadata))
+
     def test_feature_table_rejects_test_split_and_cross_split_sid(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "features.csv"
@@ -497,6 +520,54 @@ class TestExperimentInputGuards(unittest.TestCase):
                 int(train_sids.nunique()),
                 1,
             )
+
+    def test_input_loader_returns_hash_of_validated_feature_table(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "features.csv"
+            rows = [
+                complete_feature_row(
+                    "2019-0001-USA", "2019001N12345", "train"
+                ),
+                complete_feature_row(
+                    "2020-0001-USA", "2020001N12345", "validation"
+                ),
+            ]
+            pd.DataFrame(rows).to_csv(path, index=False)
+            frame, metadata = load_experiment_input(path)
+            self.assertEqual(len(frame), 2)
+            self.assertEqual(metadata["path"], "features.csv")
+            self.assertEqual(metadata["size_bytes"], path.stat().st_size)
+            self.assertEqual(
+                metadata["sha256"],
+                hashlib.sha256(path.read_bytes()).hexdigest(),
+            )
+
+    def test_input_loader_rejects_file_changed_during_read(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "features.csv"
+            row = complete_feature_row(
+                "2019-0001-USA", "2019001N12345", "train"
+            )
+            pd.DataFrame([row]).to_csv(path, index=False)
+            before = {"path": "features.csv", "size_bytes": 1, "sha256": "a"}
+            after = {"path": "features.csv", "size_bytes": 2, "sha256": "b"}
+            module = "ml.training.ibtracs_cyclone_validation_experiment"
+            with patch(
+                f"{module}.artifact_metadata", side_effect=[before, after]
+            ):
+                with self.assertRaisesRegex(RuntimeError, "changed"):
+                    load_experiment_input(path)
+
+    def test_source_metadata_hashes_the_two_reproducibility_sources(self) -> None:
+        metadata = source_code_metadata()
+        self.assertEqual(
+            set(metadata),
+            {"cyclone_validation_experiment", "ibtracs_cutoff_feature_builder"},
+        )
+        for source in metadata.values():
+            self.assertEqual(len(source["sha256"]), 64)
+            self.assertGreater(source["size_bytes"], 0)
+            self.assertFalse(Path(source["path"]).is_absolute())
 
 
 class TestCycloneValidationReliability(unittest.TestCase):
@@ -625,10 +696,56 @@ class TestCycloneValidationReliability(unittest.TestCase):
         ):
             result = run_target(frame, "impact_priority")
         expected_fingerprints = result["cohort"]["record_fingerprints"]
-        for model in result["models"].values():
+        for name, model in result["models"].items():
             self.assertEqual(model["training_sample_count"], 4)
             self.assertEqual(model["validation_sample_count"], 4)
             self.assertEqual(model["cohort_fingerprints"], expected_fingerprints)
+            if name == "dummy_prior":
+                self.assertEqual(model["feature_columns"], [])
+                self.assertEqual(model["preprocessing"], "none")
+            else:
+                self.assertEqual(
+                    model["feature_columns"],
+                    model["categorical_feature_columns"]
+                    + model["numeric_feature_columns"],
+                )
+                self.assertEqual(
+                    model["preprocessing"]["fit_scope"],
+                    "training rows for this target only",
+                )
+
+    def test_experiment_report_records_reproducibility_metadata(self) -> None:
+        feature_metadata = {
+            "path": "features.csv",
+            "size_bytes": 123,
+            "sha256": "a" * 64,
+        }
+        source_metadata = {
+            "cyclone_validation_experiment": {
+                "path": "ml/training/example.py",
+                "size_bytes": 456,
+                "sha256": "b" * 64,
+            }
+        }
+        module = "ml.training.ibtracs_cyclone_validation_experiment"
+        with patch(f"{module}.run_target", return_value={"verified": True}), patch(
+            f"{module}.source_code_metadata", return_value=source_metadata
+        ):
+            report = run_experiment(self.cohort_frame(), feature_metadata)
+        self.assertEqual(report["report_schema_version"], 2)
+        self.assertEqual(
+            report["input_artifacts"]["feature_table"], feature_metadata
+        )
+        self.assertEqual(report["source_code_at_execution"], source_metadata)
+        self.assertEqual(
+            report["development_splits"],
+            {"train": "2000-2019", "validation": "2020-2022"},
+        )
+        self.assertIn("2023-2025", report["test_split"])
+        self.assertEqual(set(report["random_seeds"].values()), {42})
+        self.assertEqual(
+            set(report["targets"]), {"affected_range", "impact_priority"}
+        )
 
 
 if __name__ == "__main__":

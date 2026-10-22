@@ -69,6 +69,50 @@ RF_PARAMETERS: dict[str, Any] = {
     "max_depth": None,
     "min_samples_leaf": 1,
 }
+REPORT_SCHEMA_VERSION = 2
+SOURCE_FILES = {
+    "cyclone_validation_experiment": Path(__file__).resolve(),
+    "ibtracs_cutoff_feature_builder": (
+        PROJECT_ROOT / "ml" / "preprocessing" / "build_ibtracs_cutoff_features.py"
+    ),
+}
+
+
+def _sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def artifact_metadata(path: Path, *, reported_path: str) -> dict[str, Any]:
+    """Describe exact file bytes without exposing a machine-specific path."""
+    return {
+        "path": reported_path,
+        "size_bytes": path.stat().st_size,
+        "sha256": _sha256_file(path),
+    }
+
+
+def load_experiment_input(path: Path) -> tuple[pd.DataFrame, dict[str, Any]]:
+    """Load the feature table and reject a file changed during the read."""
+    before = artifact_metadata(path, reported_path=path.name)
+    frame = load_experiment_rows(path)
+    after = artifact_metadata(path, reported_path=path.name)
+    if before != after:
+        raise RuntimeError("feature table changed while it was being loaded")
+    return frame, before
+
+
+def source_code_metadata() -> dict[str, dict[str, Any]]:
+    return {
+        name: artifact_metadata(
+            path,
+            reported_path=path.relative_to(PROJECT_ROOT).as_posix(),
+        )
+        for name, path in SOURCE_FILES.items()
+    }
 
 
 def build_preprocessor(
@@ -326,6 +370,8 @@ def run_target(frame: pd.DataFrame, target: str) -> dict[str, Any]:
     )
     models["dummy_prior"] = {
         "parameters": {"strategy": "prior", "random_state": 42},
+        "feature_columns": [],
+        "preprocessing": "none",
         "training_sample_count": int(len(train)),
         "cohort_fingerprints": cohort_fingerprints,
         **calculate_metrics(validation_labels, dummy_predictions, classes),
@@ -351,6 +397,18 @@ def run_target(frame: pd.DataFrame, target: str) -> dict[str, Any]:
         models[name] = {
             "parameters": RF_PARAMETERS,
             "feature_columns": feature_columns,
+            "categorical_feature_columns": list(categorical),
+            "numeric_feature_columns": list(numeric),
+            "preprocessing": {
+                "categorical_imputer": "most_frequent",
+                "categorical_encoder": {
+                    "type": "OneHotEncoder",
+                    "handle_unknown": "ignore",
+                    "sparse_output": False,
+                },
+                "numeric_imputer": "median",
+                "fit_scope": "training rows for this target only",
+            },
             "training_sample_count": int(len(train)),
             "cohort_fingerprints": cohort_fingerprints,
             **calculate_metrics(validation_labels, predictions, classes),
@@ -380,14 +438,25 @@ def run_target(frame: pd.DataFrame, target: str) -> dict[str, Any]:
     }
 
 
-def run_experiment(frame: pd.DataFrame) -> dict[str, Any]:
+def run_experiment(
+    frame: pd.DataFrame,
+    feature_table_metadata: dict[str, Any],
+) -> dict[str, Any]:
     return {
+        "report_schema_version": REPORT_SCHEMA_VERSION,
         "experiment": "validation-only time-safe IBTrACS cyclone comparison",
         "cutoff_policy": "00:00 UTC on EM-DAT start_date; ISO_TIME <= T0",
         "development_splits": {"train": "2000-2019", "validation": "2020-2022"},
         "test_split": "2023-2025 not present, accessed, evaluated, or reported",
         "model_selection": "none; fixed preregistered configurations",
         "rf_parameters": RF_PARAMETERS,
+        "random_seeds": {
+            "dummy_prior": 42,
+            "random_forest_nine_features": 42,
+            "random_forest_nine_plus_ibtracs": 42,
+        },
+        "input_artifacts": {"feature_table": feature_table_metadata},
+        "source_code_at_execution": source_code_metadata(),
         "software_versions": {
             "python": platform.python_version(),
             "numpy": np.__version__,
@@ -413,8 +482,8 @@ def main() -> None:
         raise FileNotFoundError(f"Local feature table does not exist: {args.input}")
     if args.output.exists() and not args.overwrite:
         raise FileExistsError(f"Refusing to overwrite local result: {args.output}")
-    frame = load_experiment_rows(args.input)
-    results = run_experiment(frame)
+    frame, feature_table_metadata = load_experiment_input(args.input)
+    results = run_experiment(frame, feature_table_metadata)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     with args.output.open("w", encoding="utf-8") as handle:
         json.dump(results, handle, indent=2)
