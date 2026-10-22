@@ -282,6 +282,7 @@ def load_ibtracs_observations(
     wanted = set(required_sids)
     observations: dict[str, list[TrackObservation]] = defaultdict(list)
     malformed_times = 0
+    truncated_selected_rows = 0
     with path.open("r", encoding="utf-8", newline="") as handle:
         reader = csv.reader(handle)
         try:
@@ -293,16 +294,21 @@ def load_ibtracs_observations(
         missing = set(IBTRACS_REQUIRED_COLUMNS).difference(columns)
         if missing:
             raise ValueError(f"IBTrACS missing required columns: {sorted(missing)}")
+        sid_index = columns["SID"]
+        final_required_index = max(columns[name] for name in IBTRACS_REQUIRED_COLUMNS)
         unit_map = {
             name: units[index] if index < len(units) else ""
             for name, index in columns.items()
             if name in IBTRACS_REQUIRED_COLUMNS
         }
         for row in reader:
-            if len(row) < len(headers):
+            if len(row) <= sid_index:
                 continue
-            sid = row[columns["SID"]].strip()
+            sid = row[sid_index].strip()
             if sid not in wanted:
+                continue
+            if len(row) <= final_required_index:
+                truncated_selected_rows += 1
                 continue
             observed_at = _parse_iso_time(row[columns["ISO_TIME"]])
             if observed_at is None:
@@ -329,6 +335,11 @@ def load_ibtracs_observations(
         raise ValueError(
             "Matched IBTrACS rows contain malformed ISO_TIME values; "
             "the T0 cutoff cannot be enforced safely"
+        )
+    if truncated_selected_rows:
+        raise ValueError(
+            "Matched IBTrACS rows are missing required trailing fields; "
+            "the T0 feature set cannot be constructed safely"
         )
     metadata = {
         "required_column_units_as_read": unit_map,

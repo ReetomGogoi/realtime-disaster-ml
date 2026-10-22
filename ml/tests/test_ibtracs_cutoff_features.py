@@ -20,6 +20,7 @@ from ml.preprocessing.build_ibtracs_cutoff_features import (
     extract_event_features,
     join_matches_to_processed,
     load_ibtracs_observations,
+    load_matching_audit,
 )
 from ml.training.ibtracs_cyclone_validation_experiment import load_experiment_rows
 
@@ -81,6 +82,7 @@ def observation(
     latitude: float | None = 20.0,
     longitude: float | None = -70.0,
     wind: float | None = 60.0,
+    agency: str = "hurdat_atl",
 ) -> TrackObservation:
     return TrackObservation(
         sid="2005235N12345",
@@ -90,7 +92,7 @@ def observation(
         wmo_wind=wind,
         wmo_pressure=980.0,
         distance_to_land=150.0,
-        wmo_agency="hurdat_atl",
+        wmo_agency=agency,
     )
 
 
@@ -115,6 +117,22 @@ def complete_feature_row(
 
 
 class TestLinkage(unittest.TestCase):
+    def test_matching_audit_rejects_duplicate_or_inconsistent_ids(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "matches.csv"
+            duplicate = pd.DataFrame(
+                [match_row("2005-0001-USA"), match_row("2005-0001-USA")]
+            )
+            duplicate.to_csv(path, index=False)
+            with self.assertRaisesRegex(ValueError, "duplicate event_country_id"):
+                load_matching_audit(path)
+
+            inconsistent = pd.DataFrame([match_row("2005-0001-USA")])
+            inconsistent.loc[0, "dis_no"] = "2005-0002-USA"
+            inconsistent.to_csv(path, index=False)
+            with self.assertRaisesRegex(ValueError, "event_country_id and dis_no"):
+                load_matching_audit(path)
+
     def test_multi_country_rows_keep_distinct_labels_and_one_sid(self) -> None:
         matches = pd.DataFrame(
             [
@@ -184,6 +202,14 @@ class TestLinkage(unittest.TestCase):
 
 
 class TestCutoffFeatures(unittest.TestCase):
+    def test_absent_sid_observations_are_ineligible_and_counted(self) -> None:
+        features, reasons = build_feature_table(
+            pd.DataFrame([event_row().to_dict()]),
+            {},
+        )
+        self.assertTrue(features.empty)
+        self.assertEqual(reasons["no_observation_at_or_before_t0"], 1)
+
     def test_future_observation_is_never_used(self) -> None:
         observations = [
             observation("2005-08-24T18:00:00", wind=60.0),
@@ -218,6 +244,24 @@ class TestCutoffFeatures(unittest.TestCase):
         )
         self.assertEqual(two["ibtracs_motion_available"], 1)
         self.assertGreater(two["ibtracs_motion_speed_kmh"], 0)
+
+    def test_missing_latest_wind_and_agency_are_not_backfilled(self) -> None:
+        features, reason = extract_event_features(
+            event_row(),
+            [
+                observation(
+                    "2005-08-24T12:00:00", wind=90.0, agency="hurdat_atl"
+                ),
+                observation(
+                    "2005-08-24T18:00:00", wind=None, agency=""
+                ),
+            ],
+        )
+        self.assertEqual(reason, "eligible")
+        self.assertIsNone(features["ibtracs_wmo_wind_knots"])
+        self.assertEqual(features["ibtracs_wmo_wind_available"], 0)
+        self.assertEqual(features["ibtracs_wmo_agency"], "Unknown")
+        self.assertEqual(features["ibtracs_wmo_agency_available"], 0)
 
     def test_duplicate_track_timestamp_blocks_all_country_rows_for_sid(self) -> None:
         events = pd.DataFrame(
@@ -310,6 +354,50 @@ class TestCutoffFeatures(unittest.TestCase):
                     ["2005235N12345", "not-a-time", "20", "-70", "50", "980", "150", "agency"]
                 )
             with self.assertRaisesRegex(ValueError, "cutoff cannot be enforced"):
+                load_ibtracs_observations(path, {"2005235N12345"})
+
+    def test_ibtracs_loader_normalizes_explicit_offset_to_utc(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "ibtracs.csv"
+            with path.open("w", newline="", encoding="utf-8") as handle:
+                writer = csv.writer(handle)
+                writer.writerow(
+                    [
+                        "SID", "ISO_TIME", "LAT", "LON", "WMO_WIND",
+                        "WMO_PRES", "DIST2LAND", "WMO_AGENCY", "UNUSED",
+                    ]
+                )
+                writer.writerow(["", "UTC", "", "", "kts", "mb", "km", "", ""])
+                # The omitted UNUSED trailing field must not discard a row
+                # that still contains every required field.
+                writer.writerow(
+                    [
+                        "2005235N12345", "2005-08-25T05:30:00+05:30",
+                        "20", "-70", "50", "980", "150", "agency",
+                    ]
+                )
+            observations, _ = load_ibtracs_observations(
+                path, {"2005235N12345"}
+            )
+            self.assertEqual(
+                observations["2005235N12345"][0].observed_at,
+                utc("2005-08-25T00:00:00"),
+            )
+
+    def test_ibtracs_loader_rejects_selected_truncated_row(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "ibtracs.csv"
+            with path.open("w", newline="", encoding="utf-8") as handle:
+                writer = csv.writer(handle)
+                writer.writerow(
+                    [
+                        "SID", "ISO_TIME", "LAT", "LON", "WMO_WIND",
+                        "WMO_PRES", "DIST2LAND", "WMO_AGENCY",
+                    ]
+                )
+                writer.writerow(["", "UTC", "", "", "kts", "mb", "km", ""])
+                writer.writerow(["2005235N12345", "2005-08-24 18:00:00"])
+            with self.assertRaisesRegex(ValueError, "missing required trailing"):
                 load_ibtracs_observations(path, {"2005235N12345"})
 
 
