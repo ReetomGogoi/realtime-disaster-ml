@@ -130,3 +130,53 @@ all three models on the identical target-specific cohort. Do not compare these
 cyclone-subset metrics directly with the saved all-hazard validation metrics as
 if they were evaluated on the same records. Do not inspect or use the final
 test split when deciding whether the enriched feature set is useful.
+
+## Controlled feature-block ablation
+
+The follow-up ablation compares exactly three fixed configurations:
+
+- **A:** the existing nine EM-DAT features;
+- **B:** A plus WMO wind, WMO pressure, their availability indicators,
+  `WMO_AGENCY`, and the agency-availability indicator; and
+- **C:** A plus the complete cutoff-safe IBTrACS feature set described above.
+
+All three configurations use the same target-specific country records, Random
+Forest parameters, seed, and training-only preprocessing. This is a diagnostic
+comparison. The script does not automatically select a feature set or update a
+saved model.
+
+For each pair of configurations, the report includes the observed validation
+macro-F1 difference and a 95% percentile confidence interval from 2,000 paired
+bootstrap replicates with seed `20261023`. Each replicate samples physical
+`matched_sid` values with replacement, keeps every country row belonging to a
+sampled SID together, and applies the same sampled rows to A, B, and C. Macro
+F1 always uses the fixed training class order, including when a replicate does
+not contain every class. These intervals describe validation-set uncertainty;
+they are not additional model-selection folds.
+
+Run the ablation locally from PowerShell after generating the cutoff feature
+table:
+
+```powershell
+cd D:\ML\realtime-disaster-ml
+git fetch origin
+git switch review/v2-ibtracs-feature-block-ablation
+git pull --ff-only origin review/v2-ibtracs-feature-block-ablation
+
+python -m unittest discover -s ml/tests -p "test_*.py" -v
+python -m compileall -q ml\preprocessing ml\training ml\tests
+python -m ml.training.ibtracs_feature_block_ablation
+```
+
+The new local output is:
+
+```text
+datasets/processed/v2_ibtracs_feature_block_ablation.json
+```
+
+The output directory is Git-ignored. The script refuses to overwrite an
+existing ablation result, never saves a fitted model, and never reads a feature
+table containing the 2023-2025 test split. Preserve the old result by renaming
+it before an intentional rerun. Historical EM-DAT `magnitude` remains in every
+configuration for a controlled comparison; whether it was available at T0 is
+still unresolved.
