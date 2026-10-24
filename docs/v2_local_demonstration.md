@@ -124,3 +124,34 @@ Optional browser integration check (requires Playwright Chromium and the two
 local servers above): `python frontend/tests/dashboard_browser.py`. It uses the
 actual API, avoids live synchronization, checks unavailable states when local
 files/models are absent, and saves screenshots outside the repository.
+
+## Latest cyclone refresh versus local archives
+
+Branch `review/cyclone-latest-and-archive` adds two Cyclone Intelligence tabs.
+Latest GDACS Cyclones uses read-only GET `/cyclones/latest` and the existing
+manual POST `/sync-live-events` route. The endpoint reports the last successful
+SyncLog completion separately from each observation's retrieval, publication,
+modification and event timestamps. Only rows tagged as belonging to that
+successful refresh are included. Older rows remain in the database and Explorer.
+Failed refreshes retain the previous successful view. Empty successful refreshes
+show no cyclone rows. Untagged legacy records may require another refresh.
+
+Ingestion now retains a namespace-aware cyclone observation summary in
+raw_payload, including numeric attributes and original units. This is not a full
+XML archive or predictor mapping. Missing/invalid/ambiguous fields stay
+unavailable. Exposure, including Pop74, is source-modelled exposure, not observed
+EM-DAT Total Affected. The public endpoint exposes only an allowlisted summary;
+existing event responses and database tables are unchanged. Intra-feed duplicate
+records retain the existing first-occurrence policy.
+
+Archived Cyclone Observations reads the verified local extraction through the
+existing loopback/environment-gated research endpoint. It remains disabled in
+production. Refreshing saved events neither collects nor modifies archive
+snapshots. Latest and archive observations have separate caches. Collecting a
+new versioned snapshot still requires the separate explicit collector command.
+
+Use `git switch review/cyclone-latest-and-archive` after `git fetch origin`, then
+run the backend/frontend commands above. Open Cyclone Intelligence and click
+Refresh GDACS in the Latest tab. This makes a real official-feed request on your
+machine. Monitoring is refreshed near-real-time data, not continuous streaming
+or validated live ML inference.

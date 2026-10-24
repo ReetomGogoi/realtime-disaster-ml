@@ -8,6 +8,7 @@ from app.database.session import engine
 from app.database.base import Base
 import app.database.models  # noqa: F401 — registers all models with Base
 from app.api.routes.events import router as events_router
+from app.api.routes.cyclones import router as cyclones_router
 from app.ml_inference import load_model_bundle
 
 
@@ -43,6 +44,7 @@ app.add_middleware(
 # Routers
 # ---------------------------------------------------------------------------
 app.include_router(events_router, prefix="", tags=["events"])
+app.include_router(cyclones_router, tags=["cyclone monitoring"])
 
 if os.getenv("ENABLE_LOCAL_ML_DEMO") == "1" and not os.getenv("VERCEL"):
     from app.api.routes.local_demo import router as local_demo_router

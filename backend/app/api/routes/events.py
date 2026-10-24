@@ -134,7 +134,9 @@ async def sync_live_events(db: Session = Depends(get_db)) -> dict:
         skipped_count  = 0
         seen: set[tuple[str, str]] = set()  # guard against intra-batch dupes
 
-        for ev in raw_events:
+        for source_event in raw_events:
+            ev = {**source_event, "raw_payload": {**(source_event.get("raw_payload") or {}),
+                  "gdacs_sync_started_at_utc": started_at.isoformat()}}
             key = (ev["source"], ev["source_event_id"])
 
             if key in seen:

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 type ObservedField = {
   value: string | number | null;
@@ -9,8 +9,8 @@ type ObservedField = {
 export type Cyclone = {
   snapshot_id: string;
   retrieved_at_utc: string;
-  source_url: string;
-  response_sha256: string;
+  source_url: string | null;
+  response_sha256?: string;
   country_occurrences: (string | null)[];
   fields: Record<string, ObservedField>;
 };
@@ -18,19 +18,29 @@ const shown = (field?: ObservedField) =>
   field?.status === "available"
     ? `${field.value ?? "Unavailable"} ${field.unit ?? ""}`
     : `Unavailable (${field?.status ?? "missing"})`;
-export function ObservationCards({ records }: { records: Cyclone[] }) {
+export function ObservationCards({
+  records,
+  mode = "archive",
+}: {
+  records: Cyclone[];
+  mode?: "archive" | "latest";
+}) {
   return (
     <div className="cyclone-grid">
       {records.length === 0 && (
         <div className="empty">
-          No local cyclone observations available. Generate and verify the local
-          extraction first.
+          {mode === "archive"
+            ? "No local cyclone observations available. Generate and verify the local extraction first."
+            : "No tropical cyclones were saved in the latest successful refresh."}
         </div>
       )}
       {records.map((row, i) => (
         <article className="panel cyclone-card" key={`${row.snapshot_id}-${i}`}>
           <div className="panel-heading">
-            <span className="eyebrow">TROPICAL CYCLONE · ARCHIVED</span>
+            <span className="eyebrow">
+              TROPICAL CYCLONE ·{" "}
+              {mode === "archive" ? "ARCHIVED" : "LATEST REFRESH"}
+            </span>
             <span
               className={`badge severity-${String(row.fields.alert_level?.value ?? "").toLowerCase()}`}
             >
@@ -69,11 +79,27 @@ export function ObservationCards({ records }: { records: Cyclone[] }) {
             affected population.
           </p>
           <details>
-            <summary>Collection provenance</summary>
+            <summary>Observation provenance</summary>
             <p>Retrieved: {row.retrieved_at_utc}</p>
-            <p>Source: {row.source_url}</p>
-            <p>Snapshot: {row.snapshot_id}</p>
-            <small>Response SHA-256: {row.response_sha256}</small>
+            <p>Source: {row.source_url ?? "Unavailable"}</p>
+            {row.source_url && /^https?:\/\//i.test(row.source_url) && (
+              <a
+                href={row.source_url}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                View GDACS source ↗
+              </a>
+            )}
+            <p>
+              {mode === "archive" ? "Snapshot" : "Refresh record"}:{" "}
+              {row.snapshot_id}
+            </p>
+            {mode === "archive" && (
+              <small>
+                Response SHA-256: {row.response_sha256 ?? "Unavailable"}
+              </small>
+            )}
             <p>
               Retrieval establishes observation of this version, not original
               availability.
@@ -131,41 +157,104 @@ export function CycloneIntelligence({
   apiBase: string;
   enabled: boolean;
 }) {
-  const query = useQuery({
-    queryKey: ["local-cyclones", apiBase],
-    queryFn: () => request(`${apiBase}/local-demo/cyclones`),
-    enabled,
+  const [view, setView] = useState<"latest" | "archive">("latest");
+  const client = useQueryClient();
+  const latest = useQuery({
+    queryKey: ["latest-cyclones", apiBase],
+    queryFn: () => request(`${apiBase}/cyclones/latest`),
     retry: false,
   });
-  if (!enabled) return <LocalUnavailable />;
+  const archive = useQuery({
+    queryKey: ["local-cyclones", apiBase],
+    queryFn: () => request(`${apiBase}/local-demo/cyclones`),
+    enabled: enabled && view === "archive",
+    retry: false,
+  });
+  const refresh = useMutation({
+    mutationFn: () =>
+      request(`${apiBase}/sync-live-events`, { method: "POST" }),
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: ["latest-cyclones"] });
+      void client.invalidateQueries({ queryKey: ["dashboard-events"] });
+    },
+  });
+  const query = view === "latest" ? latest : archive;
   return (
     <>
       <div className="section-toolbar">
-        <p className="muted">
-          Observations, not ML predictions. Repeated country occurrences are
-          preserved.
-        </p>
-        <button
-          onClick={() => void query.refetch()}
-          disabled={query.isFetching}
-        >
-          ↻ Reload archive
-        </button>
+        <div role="group" aria-label="Cyclone observation source">
+          <button
+            aria-pressed={view === "latest"}
+            onClick={() => setView("latest")}
+          >
+            Latest GDACS Cyclones
+          </button>{" "}
+          <button
+            aria-pressed={view === "archive"}
+            onClick={() => setView("archive")}
+          >
+            Archived Cyclone Observations
+          </button>
+        </div>
       </div>
-      <p role="status">
-        {query.error
-          ? String(query.error)
-          : (query.data?.reason ??
-            "Verified local extraction · archived observations")}
-      </p>
-      {query.isLoading ? (
-        <Skeleton />
+      <div className="notice">
+        Near-real-time monitoring after manual refresh, not continuous streaming
+        or validated ML predictions. Population exposure is modelled exposure,
+        not EM-DAT Total Affected.
+      </div>
+      {view === "archive" && !enabled ? (
+        <LocalUnavailable />
       ) : (
-        <ObservationCards records={query.data?.records ?? []} />
+        <>
+          <div className="section-toolbar">
+            <p className="muted">
+              {view === "latest"
+                ? `Last successful refresh: ${latest.data?.last_successful_refresh_utc ?? "Unavailable"}`
+                : "Versioned local archive · unaffected by live refresh"}
+            </p>
+            {view === "latest" ? (
+              <button
+                disabled={refresh.isPending || latest.isFetching}
+                onClick={() => refresh.mutate()}
+              >
+                {refresh.isPending ? "Refreshing…" : "↻ Refresh GDACS"}
+              </button>
+            ) : (
+              <button
+                disabled={archive.isFetching}
+                onClick={() => void archive.refetch()}
+              >
+                ↻ Reload archive
+              </button>
+            )}
+          </div>
+          {refresh.isError && view === "latest" && (
+            <div role="alert" className="notice">
+              Refresh failed. The previous successful refresh remains displayed.{" "}
+              {String(refresh.error)}
+            </div>
+          )}
+          <p role="status">
+            {query.error
+              ? String(query.error)
+              : (query.data?.reason ??
+                (view === "latest"
+                  ? "Saved observations from the latest successful refresh"
+                  : "Verified local extraction · archived observations"))}
+          </p>
+          {query.isLoading ? (
+            <Skeleton />
+          ) : query.isError && !query.data ? (
+            <div className="panel empty" role="alert">Observations could not be loaded. Retry when the service is available.</div>
+          ) : (
+            <ObservationCards records={query.data?.records ?? []} mode={view} />
+          )}
+        </>
       )}
     </>
   );
 }
+
 export function LocalUnavailable() {
   return (
     <div className="panel empty">

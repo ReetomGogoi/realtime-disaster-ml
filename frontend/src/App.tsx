@@ -71,6 +71,7 @@ export default function App() {
         `Refresh complete: ${result.fetched_count} fetched · ${result.inserted_count} new · ${result.updated_count} updated`,
       );
       void client.invalidateQueries({ queryKey: ["dashboard-events"] });
+      void client.invalidateQueries({ queryKey: ["latest-cyclones"] });
     },
     onError: (error) => setMessage(`Refresh failed: ${error.message}`),
   });
@@ -539,12 +540,21 @@ export default function App() {
             aria-modal="true"
             aria-label="Disaster details"
             onKeyDown={(event) => {
-              if (event.key === 'Escape') setSelected(null);
-              if (event.key === 'Tab') {
-                const elements = event.currentTarget.querySelectorAll<HTMLElement>('button, a[href]');
-                const first = elements[0], last = elements[elements.length - 1];
-                if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
-                else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+              if (event.key === "Escape") setSelected(null);
+              if (event.key === "Tab") {
+                const elements =
+                  event.currentTarget.querySelectorAll<HTMLElement>(
+                    "button, a[href]",
+                  );
+                const first = elements[0],
+                  last = elements[elements.length - 1];
+                if (event.shiftKey && document.activeElement === first) {
+                  event.preventDefault();
+                  last?.focus();
+                } else if (!event.shiftKey && document.activeElement === last) {
+                  event.preventDefault();
+                  first?.focus();
+                }
               }
             }}
             onClick={(e) => e.stopPropagation()}

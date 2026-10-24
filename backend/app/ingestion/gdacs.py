@@ -39,6 +39,8 @@ from typing import Any
 
 import httpx
 
+from app.ingestion.cyclone_fields import observation_fields
+
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
@@ -197,6 +199,9 @@ def _item_to_dict(item: ET.Element) -> dict[str, Any]:
         (element.text or "").strip()
         for element in item.findall("gdacs:fromdate", _NS)
     ]
+
+    if event_type == "TC":
+        raw_payload["gdacs_cyclone_observations_v1"] = observation_fields(item)
 
     return {
         "source":          "GDACS",

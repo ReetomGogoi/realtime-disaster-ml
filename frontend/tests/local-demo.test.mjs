@@ -60,6 +60,16 @@ test("observation/provenance/missing and unavailable prediction rendering", asyn
     assert.match(html, /Unavailable \(missing\)/);
     assert.match(html, /2026-06-01/);
     assert.match(html, /Response SHA-256/);
+    assert.match(html, /TROPICAL CYCLONE · ARCHIVED/);
+    const latest = renderToStaticMarkup(React.createElement(ObservationCards, {
+      mode: "latest", records: [{snapshot_id: "sync-1", retrieved_at_utc: "2026-06-01",
+        source_url: "https://www.gdacs.org/", country_occurrences: [], fields: {}}]
+    }));
+    assert.match(latest, /LATEST REFRESH/);
+    assert.doesNotMatch(latest, /ARCHIVED/);
+    assert.doesNotMatch(latest, /Response SHA-256/);
+    assert.match(latest, /View GDACS source/);
+
     const unavailable = renderToStaticMarkup(
       React.createElement(PredictionResults, {
         results: {

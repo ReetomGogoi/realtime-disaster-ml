@@ -29,6 +29,8 @@ def run():
         nav.get_by_role('button', name='Disaster Explorer').click()
         expect(page.get_by_role('searchbox')).to_be_visible()
         nav.get_by_role('button', name='Cyclone Intelligence').click()
+        expect(page.get_by_role('button', name='Latest GDACS Cyclones', exact=True)).to_be_visible()
+        page.get_by_role('button',name='Archived Cyclone Observations',exact=True).click()
         expect(page.get_by_text('Local extraction output missing')).to_be_visible()
         nav.get_by_role('button', name='ML Prediction Lab').click()
         expect(page.get_by_role('heading', name='Historical feature record')).to_be_visible()
