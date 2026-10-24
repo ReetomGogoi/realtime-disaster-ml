@@ -1,3 +1,4 @@
+import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -42,6 +43,10 @@ app.add_middleware(
 # Routers
 # ---------------------------------------------------------------------------
 app.include_router(events_router, prefix="", tags=["events"])
+
+if os.getenv("ENABLE_LOCAL_ML_DEMO") == "1" and not os.getenv("VERCEL"):
+    from app.api.routes.local_demo import router as local_demo_router
+    app.include_router(local_demo_router, tags=["local demonstration"])
 
 
 # ---------------------------------------------------------------------------

@@ -4,8 +4,10 @@ import { hasCoords } from "./utils/mapUtils";
 import DisasterMap from "./components/DisasterMap";
 import MapLegend from "./components/MapLegend";
 import { useState } from "react";
+import LocalDemo from "./components/LocalDemo";
+import { API_BASE } from "./api/client";
 
-export default function App() {
+function MonitoringApp() {
   const queryClient = useQueryClient();
   const [syncMsg, setSyncMsg] = useState<string | null>(null);
 
@@ -147,4 +149,11 @@ export default function App() {
       </footer>
     </div>
   );
+}
+
+export default function App() {
+  const enabled = import.meta.env.DEV && import.meta.env.VITE_ENABLE_LOCAL_ML_DEMO === "1";
+  return enabled && new URLSearchParams(window.location.search).get("demo") === "1"
+    ? <div style={{height:"100vh",overflowY:"auto"}}><LocalDemo apiBase={API_BASE}/></div>
+    : <MonitoringApp/>;
 }
