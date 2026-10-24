@@ -1,0 +1,11 @@
+scope,target,model,selection_note,train_n,validation_n,accuracy,macro_f1,weighted_f1,balanced_accuracy,evidence
+all-hazard,affected_range,Dummy most-frequent,fixed baseline,5432,979,0.4759959142,0.2149942330,0.3070091294,,validation_metrics.json
+all-hazard,affected_range,Random Forest,fixed original configuration,5432,979,0.5199182840,0.5037412999,0.5172452033,0.5062481052,validation_metrics.json
+all-hazard,affected_range,XGBoost,best of three preregistered configurations by validation macro F1,5432,979,0.5127681307,0.5057905484,0.5124978925,0.5143806879,xgboost_model_v2_validation.json
+all-hazard,affected_range,ExtraTrees,best of three preregistered configurations by validation macro F1,5432,979,0.5240040858,0.5168118585,0.5227665147,0.5250415141,extra_trees_model_v2_validation.json
+all-hazard,affected_range,Logistic Regression,best of three preregistered C values by validation macro F1,5432,979,0.5342185904,0.5273532432,0.5339455378,0.5358092921,logistic_regression_model_v2_validation.json
+all-hazard,impact_priority,Dummy most-frequent,fixed baseline,3961,681,0.2980910426,0.1530920060,0.1369060671,,validation_metrics.json
+all-hazard,impact_priority,Random Forest,fixed original configuration,3961,681,0.4728340675,0.4631563837,0.4731549578,0.4608480023,validation_metrics.json
+all-hazard,impact_priority,XGBoost,best of three preregistered configurations by validation macro F1,3961,681,0.4801762115,0.4629217032,0.4741496545,0.4632381437,xgboost_model_v2_validation.json
+all-hazard,impact_priority,ExtraTrees,best of three preregistered configurations by validation macro F1,3961,681,0.4669603524,0.4604212789,0.4696008241,0.4568167060,extra_trees_model_v2_validation.json
+all-hazard,impact_priority,Logistic Regression,best of three preregistered C values by validation macro F1,3961,681,0.4787077827,0.4585635187,0.4706122206,0.4599343891,logistic_regression_model_v2_validation.json

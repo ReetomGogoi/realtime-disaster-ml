@@ -1,0 +1,7 @@
+target,configuration,accuracy,macro_f1,provenance,status
+affected_range,nine-feature Random Forest,0.6269,0.6161,"values supplied with manuscript request; local JSON absent from checkout",PENDING_ARTIFACT_VERIFICATION
+affected_range,full IBTrACS-enriched Random Forest,0.4328,0.4067,"values supplied with manuscript request; local JSON absent from checkout",PENDING_ARTIFACT_VERIFICATION
+affected_range,Random Forest without magnitude fields,0.4925,0.4668,"values supplied with manuscript request; local JSON absent from checkout",PENDING_ARTIFACT_VERIFICATION
+impact_priority,nine-feature Random Forest,0.4909,0.4689,"values supplied with manuscript request; local JSON absent from checkout",PENDING_ARTIFACT_VERIFICATION
+impact_priority,full IBTrACS-enriched Random Forest,0.4545,0.3947,"values supplied with manuscript request; local JSON absent from checkout",PENDING_ARTIFACT_VERIFICATION
+impact_priority,Random Forest without magnitude fields,0.5455,0.5072,"values supplied with manuscript request; local JSON absent from checkout",PENDING_ARTIFACT_VERIFICATION
