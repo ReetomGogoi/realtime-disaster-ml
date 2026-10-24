@@ -10,7 +10,6 @@ import DisasterMap from "./components/DisasterMap";
 import MapLegend from "./components/MapLegend";
 import {
   CycloneIntelligence,
-  PredictionLab,
   ModelPerformance,
   Skeleton,
 } from "./components/LocalDemo";
@@ -20,11 +19,11 @@ const pages = [
   "Dashboard",
   "Disaster Explorer",
   "Cyclone Intelligence",
-  "ML Prediction Lab",
   "Model Performance",
   "About",
-];
-const icons = ["◫", "◎", "◉", "⌘", "▥", "ⓘ"];
+] as const;
+const icons = ["◫", "◎", "◉", "▥", "ⓘ"];
+type Page = (typeof pages)[number];
 const localEnabled =
   import.meta.env.DEV && import.meta.env.VITE_ENABLE_LOCAL_ML_DEMO === "1";
 async function loadEvents(): Promise<EventListResponse> {
@@ -46,7 +45,7 @@ async function loadEvents(): Promise<EventListResponse> {
   return { total, limit: records.length, offset: 0, events: records };
 }
 export default function App() {
-  const [page, setPage] = useState(
+  const [page, setPage] = useState<Page>(
     new URLSearchParams(window.location.search).get("demo") === "1"
       ? "Cyclone Intelligence"
       : "Dashboard",
@@ -105,7 +104,7 @@ export default function App() {
   );
   const mapped = events.filter(hasCoords).length;
   const total = query.data?.total;
-  function navigate(next: string) {
+  function navigate(next: Page) {
     setPage(next);
     setMenu(false);
   }
@@ -235,9 +234,7 @@ export default function App() {
                     ? "Search saved official records. Every event links back to its source."
                     : page === "Cyclone Intelligence"
                       ? "Source observations with transparent units and collection provenance."
-                      : page === "ML Prediction Lab"
-                        ? "A controlled workspace for retrospective historical inference."
-                        : page === "Model Performance"
+                      : page === "Model Performance"
                           ? "Evidence-led evaluation. Saved validation results, clearly scoped."
                           : "The data, methodology, and boundaries behind this project."}
               </p>
@@ -447,9 +444,6 @@ export default function App() {
           )}
           {page === "Cyclone Intelligence" && (
             <CycloneIntelligence apiBase={API_BASE} enabled={localEnabled} />
-          )}
-          {page === "ML Prediction Lab" && (
-            <PredictionLab apiBase={API_BASE} enabled={localEnabled} />
           )}
           {page === "Model Performance" && (
             <ModelPerformance apiBase={API_BASE} enabled={localEnabled} />

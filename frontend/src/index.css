@@ -631,32 +631,6 @@ details p {
 details small {
   word-break: break-all;
 }
-.lab-grid {
-  display: grid;
-  grid-template-columns: 2fr 1fr;
-  gap: 24px;
-}
-.form-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 18px;
-  margin: 24px 0;
-}
-.protocol {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  font-size: 12px;
-  color: #b2c3dc;
-  margin: 24px 0;
-}
-.protocol span {
-  font-size: 11px;
-  border: 1px solid #406388;
-  border-radius: 50%;
-  padding: 8px;
-  color: #8bcedf;
-}
 .result-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -665,22 +639,6 @@ details small {
 }
 .result-grid h2 {
   text-transform: capitalize;
-}
-.metric-row {
-  display: flex;
-  gap: 10px;
-  font-size: 12px;
-  margin: 18px 0;
-}
-.metric-row meter {
-  flex: 1;
-  accent-color: #5f9ff0;
-}
-.metric-row span {
-  width: 50px;
-}
-.metric-row b {
-  width: 45px;
 }
 .comparison {
   padding-top: 24px;
@@ -904,12 +862,6 @@ footer span {
   .topbar {
     padding: 0 24px;
   }
-  .lab-grid {
-    grid-template-columns: 1fr;
-  }
-  .lab-grid aside {
-    display: none;
-  }
 }
 @media (max-width: 950px) {
   .dashboard-grid {
@@ -1025,9 +977,6 @@ footer span {
   .panel-heading button {
     padding: 8px;
     font-size: 10px;
-  }
-  .form-grid {
-    grid-template-columns: 1fr;
   }
   .filters {
     gap: 10px;

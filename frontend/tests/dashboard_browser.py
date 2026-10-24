@@ -26,21 +26,17 @@ def run():
         expect(page.locator('.leaflet-tile-loaded').first).to_be_visible(timeout=15000)
         page.screenshot(path=str(output/'dashboard-desktop.png'), full_page=True)
         nav=page.get_by_role('navigation', name='Main navigation')
+        expect(nav.get_by_role('button')).to_have_count(5)
+        expect(nav.get_by_text('ML Prediction Lab', exact=True)).to_have_count(0)
+        assert [button.inner_text().strip() for button in nav.get_by_role('button').all()] == [
+            '◫\nDashboard', '◎\nDisaster Explorer',
+            '◉\nCyclone Intelligence\nARCHIVE', '▥\nModel Performance', 'ⓘ\nAbout']
         nav.get_by_role('button', name='Disaster Explorer').click()
         expect(page.get_by_role('searchbox')).to_be_visible()
         nav.get_by_role('button', name='Cyclone Intelligence').click()
         expect(page.get_by_role('button', name='Latest GDACS Cyclones', exact=True)).to_be_visible()
         page.get_by_role('button',name='Archived Cyclone Observations',exact=True).click()
         expect(page.get_by_text('Local extraction output missing')).to_be_visible()
-        nav.get_by_role('button', name='ML Prediction Lab').click()
-        expect(page.get_by_role('heading', name='Historical feature record')).to_be_visible()
-        page.get_by_label('disaster type', exact=True).select_option('Storm')
-        for name,value in [('disaster subtype','Tropical cyclone'),('iso','USA'),('region','Americas'),('subregion','Northern America')]:
-            page.get_by_label(name,exact=True).fill(value)
-        page.get_by_label('start month',exact=True).select_option('8')
-        page.get_by_role('button', name='Run historical inference').click()
-        expect(page.get_by_text('No prediction available')).to_have_count(2)
-        assert any('/local-demo/historical-predict' in url for url in requests)
         nav.get_by_role('button', name='Model Performance').click()
         expect(page.get_by_role('heading',name='Random Forest')).to_have_count(2)
         assert any('/local-demo/performance' in url for url in requests)
@@ -80,7 +76,8 @@ def run():
         assert any('/sync-live-events' in url for url in requests)
         assert not errors, errors
         # The only refresh above is intercepted with a synthetic response.
-        print('PASS: actual events, cyclone, historical-predict and performance API requests; navigation; mobile layout; synthetic search/details.')
+        assert not any('/local-demo/historical-predict' in url for url in requests)
+        print('PASS: exactly five sections; no prediction lab/API call; actual events, cyclone and performance APIs; mobile layout; synthetic search/details.')
         print('Screenshots:',output)
         browser.close()
 

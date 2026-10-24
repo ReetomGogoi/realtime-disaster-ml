@@ -6,9 +6,27 @@ import ts from "typescript";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
-test("observation/provenance/missing and unavailable prediction rendering", async () => {
+test("cyclone observation rendering excludes the removed prediction lab", async () => {
   const directory = await mkdtemp(new URL("./.local-demo-", import.meta.url));
   try {
+    const appSource = await readFile(
+      new URL("../src/App.tsx", import.meta.url),
+      "utf8",
+    );
+    const navigation = appSource.match(/const pages = \[([\s\S]*?)\] as const;/);
+    assert.ok(navigation);
+    assert.deepEqual(
+      [...navigation[1].matchAll(/"([^"]+)"/g)].map((match) => match[1]),
+      [
+        "Dashboard",
+        "Disaster Explorer",
+        "Cyclone Intelligence",
+        "Model Performance",
+        "About",
+      ],
+    );
+    assert.doesNotMatch(appSource, /ML Prediction Lab/);
+    assert.doesNotMatch(appSource, /PredictionLab/);
     const source = await readFile(
       new URL("../src/components/LocalDemo.tsx", import.meta.url),
       "utf8",
@@ -21,17 +39,11 @@ test("observation/provenance/missing and unavailable prediction rendering", asyn
     }).outputText;
     const path = `${directory}/component.mjs`;
     await writeFile(path, output);
-    const {
-      ObservationCards,
-      PredictionResults,
-      PredictionLab,
-      LocalUnavailable,
-    } = await import(pathToFileURL(path));
-    const form = renderToStaticMarkup(
-      React.createElement(PredictionLab, { apiBase: "", enabled: true }),
+    const { ObservationCards, LocalUnavailable } = await import(
+      pathToFileURL(path)
     );
-    assert.match(form, /Historical feature record/);
-    assert.doesNotMatch(form, /<textarea/);
+    assert.doesNotMatch(source, /PredictionLab/);
+    assert.doesNotMatch(source, /historical-predict/);
     assert.match(
       renderToStaticMarkup(React.createElement(LocalUnavailable)),
       /Unavailable in production/,
@@ -70,18 +82,6 @@ test("observation/provenance/missing and unavailable prediction rendering", asyn
     assert.doesNotMatch(latest, /Response SHA-256/);
     assert.match(latest, /View GDACS source/);
 
-    const unavailable = renderToStaticMarkup(
-      React.createElement(PredictionResults, {
-        results: {
-          affected_range: {
-            status: "model_unavailable",
-            predicted_label: null,
-          },
-        },
-      }),
-    );
-    assert.match(unavailable, /model unavailable/);
-    assert.match(unavailable, /No prediction available/);
     assert.match(
       renderToStaticMarkup(
         React.createElement(ObservationCards, { records: [] }),

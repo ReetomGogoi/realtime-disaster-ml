@@ -67,11 +67,9 @@ $env:VITE_API_URL = "http://127.0.0.1:8000"
 npm run dev -- --host 127.0.0.1
 ```
 
-Open `http://127.0.0.1:5173/?demo=1`; click Load local cyclone observations.
-Paste an authorized historical nine-feature JSON record into the separate form.
-Required keys: disaster_type, disaster_subtype, iso, region, subregion, season,
-start_month, magnitude, magnitude_available. Missing magnitude is JSON null with
-availability 0; month and season must agree. No example prediction is embedded.
+Open `http://127.0.0.1:5173/?demo=1` to view latest and archived cyclone
+observations. The website has no manual prediction form. Historical model code
+and artifacts remain available for controlled research outside the website.
 
 API: GET `/health`, GET `/local-demo/cyclones`, POST
 `/local-demo/historical-predict`. Predictions are computed without persistence.
@@ -100,10 +98,9 @@ research, not an official warning/dispatch system or completed live ML inference
 
 ## Dashboard redesign
 
-The review branch `review/disaster-intelligence-dashboard` adds Dashboard,
-Explorer, Cyclone Intelligence, ML Prediction Lab, Model Performance and About
-navigation. Use that branch instead of the original demonstration branch in the
-setup commands above. The same local environment flags and ports apply.
+The dashboard provides exactly five navigation sections: Dashboard, Disaster
+Explorer, Cyclone Intelligence, Model Performance and About. The same local
+environment flags and ports apply.
 
 The normal URL `/` is now the complete dashboard; `?demo=1` opens Cyclone
 Intelligence directly. Research pages remain disabled outside explicitly opted-in
