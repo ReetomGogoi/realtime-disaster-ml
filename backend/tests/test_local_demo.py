@@ -81,3 +81,23 @@ class TestLocalDemo(unittest.TestCase):
         from fastapi import HTTPException
         with self.assertRaises(HTTPException):
             local_demo.local_only(SimpleNamespace(client=SimpleNamespace(host='192.0.2.1')))
+
+    def test_performance_only_returns_allowlisted_validation_metrics(self):
+        saved = {target: {'dataset_info': {'val_samples': 12},
+                 'random_forest': {'accuracy': .5, 'macro_f1': .4},
+                 'baseline_dummy_most_frequent': {'accuracy': .3, 'macro_f1': .2}}
+                 for target in local_demo.TARGETS}
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory)
+            folder=root/'docs/model_evaluation'
+            folder.mkdir(parents=True)
+            (folder/'validation_metrics.json').write_text(json.dumps(saved))
+            with patch.object(local_demo,'ROOT',root):
+                response=self.client.get('/local-demo/performance')
+                self.assertEqual(response.status_code,200)
+                self.assertEqual(len(response.json()['rows']),4)
+                self.assertEqual(response.json()['rows'][0]['validation_samples'],12)
+                self.assertIn('all-hazard',response.json()['cohort'])
+                self.assertEqual(len(response.json()['sha256']),64)
+                (folder/'validation_metrics.json').write_text('{}')
+                self.assertEqual(self.client.get('/local-demo/performance').status_code,422)

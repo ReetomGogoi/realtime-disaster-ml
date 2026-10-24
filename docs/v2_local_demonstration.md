@@ -46,14 +46,14 @@ python -m ml.collection.gdacs_features --snapshots datasets\raw\gdacs_snapshots
 The API validates schema, not the authenticity of generated JSON; retain and
 verify the source snapshots. Loading the demo performs no network requests.
 
-Backend terminal, with ephemeral demo storage protecting the existing SQLite:
+Backend terminal, with a separate ignored demo database protecting the existing SQLite:
 
 ```powershell
 cd D:\ML\realtime-disaster-ml\backend
 ..\.venv\Scripts\Activate.ps1
 $env:ENABLE_LOCAL_ML_DEMO = "1"
 Remove-Item Env:VERCEL -ErrorAction SilentlyContinue
-$env:DATABASE_URL = "sqlite+pysqlite:///:memory:"
+$env:DATABASE_URL = "sqlite+pysqlite:///./data/local-demo-dashboard.db"
 python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 
@@ -97,3 +97,30 @@ before actual predictions can be demonstrated. No accuracy claim is added.
 Still unvalidated: live feature availability, country-impact scope, historical
 source equivalence and operational predictive value. This is human-reviewed
 research, not an official warning/dispatch system or completed live ML inference.
+
+## Dashboard redesign
+
+The review branch `review/disaster-intelligence-dashboard` adds Dashboard,
+Explorer, Cyclone Intelligence, ML Prediction Lab, Model Performance and About
+navigation. Use that branch instead of the original demonstration branch in the
+setup commands above. The same local environment flags and ports apply.
+
+The normal URL `/` is now the complete dashboard; `?demo=1` opens Cyclone
+Intelligence directly. Research pages remain disabled outside explicitly opted-in
+Vite development mode. Model Performance reads only the saved aggregate
+`docs/model_evaluation/validation_metrics.json` through a guarded local endpoint.
+Those results cover the historical all-hazard cohort, not the matched cyclone
+subset; the page labels that distinction. No final-test files are read.
+
+The dashboard loads saved events in pages of 500, computes actual counts, and
+uses the existing map, sync route and popup reports. Marker colors represent
+hazard categories. Alert severity is explicitly unavailable on ordinary saved
+records because that API does not provide it. Actual source alert levels are
+shown only on local cyclone observation cards. No country list or chart is
+fabricated. Search and filters operate on all loaded saved events.
+
+Frontend rendering checks: `node --test tests/local-demo.test.mjs`.
+Optional browser integration check (requires Playwright Chromium and the two
+local servers above): `python frontend/tests/dashboard_browser.py`. It uses the
+actual API, avoids live synchronization, checks unavailable states when local
+files/models are absent, and saves screenshots outside the repository.

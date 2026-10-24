@@ -1,55 +1,471 @@
-import { useState } from 'react';
+import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 
-type ObservedField = {value: string | number | null; unit: string | null; status: string};
-export type Cyclone = {snapshot_id: string; retrieved_at_utc: string; source_url: string;
-  response_sha256: string; country_occurrences: (string | null)[]; fields: Record<string, ObservedField>};
-export function ObservationCards({records}: {records: Cyclone[]}) {
-  return <div>{records.length === 0 && <p>No local cyclone observations available.</p>}
-    {records.map((row, i) => <article key={`${row.snapshot_id}-${i}`} style={{border:'1px solid #888',padding:12,margin:8}}>
-      <h3>Cyclone {row.fields.event_id?.value ?? 'ID unavailable'}</h3>
-      <p>Countries as reported: {row.country_occurrences.join(', ') || 'Unavailable'}</p>
-      {['episode_id','version','severity','population_exposure','vulnerability','alert_level','alert_score','latitude','longitude','publication_time','modification_time','event_start_time','event_end_time'].map(key => {
-        const field = row.fields[key];
-        return <p key={key}>{key}: {field?.status === 'available' ? `${field.value ?? 'Unavailable'} ${field.unit ?? ''}` : `Unavailable (${field?.status ?? 'missing'})`}</p>;
-      })}
-      <p>Retrieved: {row.retrieved_at_utc}</p><p>Source: {row.source_url}</p>
-      <small>Response SHA-256: {row.response_sha256}</small>
-    </article>)}
-  </div>;
+type ObservedField = {
+  value: string | number | null;
+  unit: string | null;
+  status: string;
+};
+export type Cyclone = {
+  snapshot_id: string;
+  retrieved_at_utc: string;
+  source_url: string;
+  response_sha256: string;
+  country_occurrences: (string | null)[];
+  fields: Record<string, ObservedField>;
+};
+const shown = (field?: ObservedField) =>
+  field?.status === "available"
+    ? `${field.value ?? "Unavailable"} ${field.unit ?? ""}`
+    : `Unavailable (${field?.status ?? "missing"})`;
+export function ObservationCards({ records }: { records: Cyclone[] }) {
+  return (
+    <div className="cyclone-grid">
+      {records.length === 0 && (
+        <div className="empty">
+          No local cyclone observations available. Generate and verify the local
+          extraction first.
+        </div>
+      )}
+      {records.map((row, i) => (
+        <article className="panel cyclone-card" key={`${row.snapshot_id}-${i}`}>
+          <div className="panel-heading">
+            <span className="eyebrow">TROPICAL CYCLONE · ARCHIVED</span>
+            <span
+              className={`badge severity-${String(row.fields.alert_level?.value ?? "").toLowerCase()}`}
+            >
+              {shown(row.fields.alert_level)}
+            </span>
+          </div>
+          <h2>Cyclone {row.fields.event_id?.value ?? "ID unavailable"}</h2>
+          <p className="muted">
+            {row.country_occurrences.join(", ") || "Country unavailable"}
+          </p>
+          <div className="observation-value">
+            {shown(row.fields.severity)}
+            <small>GDACS source severity · original units</small>
+          </div>
+          <dl className="detail-grid">
+            {[
+              ["population_exposure", "Modelled exposure"],
+              ["vulnerability", "Vulnerability"],
+              ["alert_score", "Alert score"],
+              ["latitude", "Latitude"],
+              ["longitude", "Longitude"],
+              ["version", "Source version"],
+              ["episode_id", "Episode"],
+              ["publication_time", "Published"],
+              ["modification_time", "Modified"],
+              ["event_start_time", "Event timing"],
+            ].map(([key, label]) => (
+              <div key={key}>
+                <dt>{label}</dt>
+                <dd>{shown(row.fields[key])}</dd>
+              </div>
+            ))}
+          </dl>
+          <p className="notice">
+            Exposure (including Pop74) is source-modelled exposure, not observed
+            affected population.
+          </p>
+          <details>
+            <summary>Collection provenance</summary>
+            <p>Retrieved: {row.retrieved_at_utc}</p>
+            <p>Source: {row.source_url}</p>
+            <p>Snapshot: {row.snapshot_id}</p>
+            <small>Response SHA-256: {row.response_sha256}</small>
+            <p>
+              Retrieval establishes observation of this version, not original
+              availability.
+            </p>
+          </details>
+        </article>
+      ))}
+    </div>
+  );
 }
-export function PredictionResults({results}: {results: Record<string, {status: string; predicted_label: string | null}>}) {
-  return <div>{Object.entries(results).map(([target, value]) => <p key={target}>{target}: {value.status} — {value.predicted_label ?? 'No prediction available'}</p>)}</div>;
+export function PredictionResults({
+  results,
+}: {
+  results: Record<
+    string,
+    {
+      status: string;
+      predicted_label: string | null;
+      probabilities?: Record<string, number> | null;
+    }
+  >;
+}) {
+  return (
+    <div className="result-grid">
+      {Object.entries(results).map(([target, value]) => (
+        <article className="panel" key={target}>
+          <span className="eyebrow">{target.replaceAll("_", " ")}</span>
+          <h2>{value.predicted_label ?? "No prediction available"}</h2>
+          <span className="badge">{value.status.replaceAll("_", " ")}</span>
+          {value.probabilities &&
+            Object.entries(value.probabilities).map(([label, probability]) => (
+              <div className="metric-row" key={label}>
+                <span>{label}</span>
+                <meter min="0" max="1" value={probability} />
+                <b>{(probability * 100).toFixed(1)}%</b>
+              </div>
+            ))}
+        </article>
+      ))}
+    </div>
+  );
 }
-export default function LocalDemo({apiBase}: {apiBase: string}) {
-  const [records,setRecords] = useState<Cyclone[]>([]);
-  const [message,setMessage] = useState('Load the local extraction to inspect archived observations.');
-  const [input,setInput] = useState('');
-  const [results,setResults] = useState<Record<string,{status:string;predicted_label:string|null}>>({});
-  async function load() {
-    try { const response = await fetch(`${apiBase}/local-demo/cyclones`);
-      if (!response.ok) throw new Error(`Observation request failed (${response.status})`);
-      const data = await response.json(); setRecords(data.records); setMessage(data.reason ?? data.notice);
-    } catch(error) {setMessage(String(error)); setRecords([]);}
-  }
-  async function predict() {
+async function request(url: string, options?: RequestInit) {
+  const response = await fetch(url, options);
+  if (!response.ok)
+    throw new Error(
+      `Request failed (${response.status}). Check local demo settings and input values.`,
+    );
+  return response.json();
+}
+export function CycloneIntelligence({
+  apiBase,
+  enabled,
+}: {
+  apiBase: string;
+  enabled: boolean;
+}) {
+  const query = useQuery({
+    queryKey: ["local-cyclones", apiBase],
+    queryFn: () => request(`${apiBase}/local-demo/cyclones`),
+    enabled,
+    retry: false,
+  });
+  if (!enabled) return <LocalUnavailable />;
+  return (
+    <>
+      <div className="section-toolbar">
+        <p className="muted">
+          Observations, not ML predictions. Repeated country occurrences are
+          preserved.
+        </p>
+        <button
+          onClick={() => void query.refetch()}
+          disabled={query.isFetching}
+        >
+          ↻ Reload archive
+        </button>
+      </div>
+      <p role="status">
+        {query.error
+          ? String(query.error)
+          : (query.data?.reason ??
+            "Verified local extraction · archived observations")}
+      </p>
+      {query.isLoading ? (
+        <Skeleton />
+      ) : (
+        <ObservationCards records={query.data?.records ?? []} />
+      )}
+    </>
+  );
+}
+export function LocalUnavailable() {
+  return (
+    <div className="panel empty">
+      <span className="empty-icon">◇</span>
+      <h2>Local research workspace</h2>
+      <p>
+        This feature is available only in the opt-in local demonstration.
+        Production monitoring remains available in Dashboard and Explorer.
+      </p>
+      <p>
+        Enable the local backend and Vite research flags using the project
+        instructions.
+      </p>
+      <span className="badge">Unavailable in production</span>
+    </div>
+  );
+}
+export function Skeleton() {
+  return (
+    <div className="skeleton-grid" aria-label="Loading data" role="status">
+      {[1, 2, 3].map((i) => (
+        <div className="skeleton" key={i} />
+      ))}
+    </div>
+  );
+}
+export function PredictionLab({
+  apiBase,
+  enabled,
+}: {
+  apiBase: string;
+  enabled: boolean;
+}) {
+  const [values, setValues] = useState<Record<string, string>>({
+    disaster_type: "",
+    disaster_subtype: "",
+    iso: "",
+    region: "",
+    subregion: "",
+    start_month: "",
+    magnitude: "",
+  });
+  const [results, setResults] = useState<
+    Record<
+      string,
+      {
+        status: string;
+        predicted_label: string | null;
+        probabilities?: Record<string, number> | null;
+      }
+    >
+  >({});
+  const [message, setMessage] = useState(""),
+    [busy, setBusy] = useState(false);
+  const month = values.start_month ? Number(values.start_month) : null;
+  const season =
+    month === null
+      ? "Unknown"
+      : [12, 1, 2].includes(month)
+        ? "DJF"
+        : [3, 4, 5].includes(month)
+          ? "MAM"
+          : [6, 7, 8].includes(month)
+            ? "JJA"
+            : "SON";
+  if (!enabled) return <LocalUnavailable />;
+  async function submit(event: React.FormEvent) {
+    event.preventDefault();
+    setBusy(true);
     setResults({});
-    try {const response = await fetch(`${apiBase}/local-demo/historical-predict`, {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(JSON.parse(input))});
-      if (!response.ok) throw new Error(`Historical input rejected (${response.status})`);
-      const data = await response.json(); setResults(data.results); setMessage(data.notice);
-    } catch(error) {setMessage(String(error));}
+    try {
+      const data = await request(`${apiBase}/local-demo/historical-predict`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...values,
+          start_month: month,
+          season,
+          magnitude: values.magnitude === "" ? null : Number(values.magnitude),
+          magnitude_available: values.magnitude === "" ? 0 : 1,
+        }),
+      });
+      setResults(data.results);
+      setMessage(data.notice);
+    } catch (error) {
+      setMessage(String(error));
+    } finally {
+      setBusy(false);
+    }
   }
-  return <section style={{padding:20,background:'#17212f',color:'white'}}>
-    <h2>Local research demonstration</h2>
-    <h3>Archived GDACS observations — not ML predictions</h3>
-    <p>Exposure is source-modeled exposure (including Pop74), not observed affected population. Retrieval does not establish original publication availability.</p>
-    <button onClick={load}>Load local cyclone observations</button><p role="status">{message}</p>
-    <ObservationCards records={records}/>
-    <h3>Separate retrospective historical-model demonstration</h3>
-    <p>Paste one authorized historical nine-feature JSON record. Do not paste GDACS observations or reserved test records. No mapping from the cards is performed.</p>
-    <p>Required keys: disaster_type, disaster_subtype, iso, region, subregion, season, start_month, magnitude, magnitude_available.</p>
-    <textarea aria-label="Historical feature JSON" rows={8} cols={70} value={input} onChange={event=>setInput(event.target.value)}/>
-    <br/><button onClick={predict}>Run retrospective demonstration</button>
-    <PredictionResults results={results}/>
-    <p>Human-reviewed research only. Model probabilities are not verified operational confidence.</p>
-  </section>;
+  return (
+    <>
+      <div className="notice">
+        RETROSPECTIVE INFERENCE · Enter one authorized historical
+        training/validation record. Never enter reserved test records. No GDACS
+        observations are mapped into this form.
+      </div>
+      <div className="lab-grid">
+        <form className="panel" onSubmit={submit}>
+          <div className="panel-heading">
+            <h2>Historical feature record</h2>
+            <span className="badge">9-feature schema</span>
+          </div>
+          <div className="form-grid">
+            {Object.keys(values).map((key) => (
+              <label key={key}>
+                {key.replaceAll("_", " ")}
+                {key === "disaster_type" ? (
+                  <select
+                    aria-label={key.replaceAll("_", " ")}
+                    required
+                    value={values[key]}
+                    onChange={(e) =>
+                      setValues({ ...values, [key]: e.target.value })
+                    }
+                  >
+                    <option value="">Select hazard</option>
+                    {[
+                      "Storm",
+                      "Earthquake",
+                      "Flood",
+                      "Landslide",
+                      "Wildfire",
+                      "Volcanic activity",
+                    ].map((v) => (
+                      <option key={v}>{v}</option>
+                    ))}
+                  </select>
+                ) : key === "start_month" ? (
+                  <select
+                    aria-label={key.replaceAll("_", " ")}
+                    value={values[key]}
+                    onChange={(e) =>
+                      setValues({ ...values, [key]: e.target.value })
+                    }
+                  >
+                    <option value="">Unknown month</option>
+                    {Array.from({ length: 12 }, (_, i) => (
+                      <option key={i} value={i + 1}>
+                        {new Date(2020, i, 1).toLocaleString("en", {
+                          month: "long",
+                        })}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    aria-label={key.replaceAll("_", " ")}
+                    required={!["magnitude"].includes(key)}
+                    type={key === "magnitude" ? "number" : "text"}
+                    step="any"
+                    value={values[key]}
+                    placeholder={
+                      key === "magnitude"
+                        ? "Leave blank if missing"
+                        : "Historical value"
+                    }
+                    onChange={(e) =>
+                      setValues({ ...values, [key]: e.target.value })
+                    }
+                  />
+                )}
+              </label>
+            ))}
+            <label>
+              Season (derived)
+              <input readOnly value={season} />
+            </label>
+            <label>
+              Magnitude available (derived)
+              <input
+                readOnly
+                value={values.magnitude === "" ? "0 — missing" : "1 — recorded"}
+              />
+            </label>
+          </div>
+          <button className="primary" disabled={busy}>
+            {busy
+              ? "Running historical inference…"
+              : "Run historical inference →"}
+          </button>
+          <p className="muted">
+            Historical magnitude availability at prediction time remains
+            unverified.
+          </p>
+        </form>
+        <aside className="panel">
+          <span className="eyebrow">RESEARCH PROTOCOL</span>
+          <h2>Evidence before inference.</h2>
+          <p>
+            Models load only from trusted server-side artifacts. Missing or
+            incompatible artifacts produce an explicit unavailable state.
+          </p>
+          <div className="protocol">
+            <span>01</span> Exact historical feature schema
+          </div>
+          <div className="protocol">
+            <span>02</span> No live feature substitution
+          </div>
+          <div className="protocol">
+            <span>03</span> No model training or persistence
+          </div>
+          <p className="muted">
+            Probabilities are model class probabilities, not verified
+            operational confidence.
+          </p>
+        </aside>
+      </div>
+      <p role="status">{message}</p>
+      <PredictionResults results={results} />
+    </>
+  );
+}
+export function ModelPerformance({
+  apiBase,
+  enabled,
+}: {
+  apiBase: string;
+  enabled: boolean;
+}) {
+  type Row = {
+    target: string;
+    model: string;
+    accuracy: number;
+    macro_f1: number;
+    validation_samples: number;
+  };
+  const [data, setData] = useState<{
+    rows: Row[];
+    source?: string;
+    cohort?: string;
+    sha256?: string;
+  }>({ rows: [] });
+  const [message, setMessage] = useState("Loading saved validation results…");
+  useEffect(() => {
+    if (enabled)
+      request(`${apiBase}/local-demo/performance`)
+        .then((result) => {
+          setData(result);
+          setMessage(result.reason ?? "Saved validation metrics · 2020–2022");
+        })
+        .catch((error) => setMessage(String(error)));
+  }, [enabled, apiBase]);
+  if (!enabled) return <LocalUnavailable />;
+  return (
+    <>
+      <p role="status">{message}</p>
+      <div className="notice">
+        {data.cohort ?? "Only saved validation outputs are loaded."} · No
+        reserved test-period results are displayed. These are saved results, not
+        newly measured scores.
+      </div>
+      <div className="result-grid">
+        {["affected_range", "impact_priority"].map((target) => (
+          <article className="panel" key={target}>
+            <h2>{target.replaceAll("_", " ")}</h2>
+            <p className="muted">
+              Accuracy <span className="key blue" /> Macro F1{" "}
+              <span className="key cyan" />
+            </p>
+            {data.rows
+              .filter((row) => row.target === target)
+              .map((row) => (
+                <div className="comparison" key={row.model}>
+                  <h3>
+                    {row.model}
+                    <small>n = {row.validation_samples}</small>
+                  </h3>
+                  {(["accuracy", "macro_f1"] as const).map((metric) => (
+                    <div className="bar-row" key={metric}>
+                      <span>{metric.replace("_", " ")}</span>
+                      <div className="track">
+                        <div
+                          className={
+                            metric === "accuracy" ? "bar blue" : "bar cyan"
+                          }
+                          style={{ width: `${row[metric] * 100}%` }}
+                        />
+                      </div>
+                      <b>{(row[metric] * 100).toFixed(2)}%</b>
+                    </div>
+                  ))}
+                </div>
+              ))}
+            {!data.rows.length && (
+              <p className="empty">Validation results unavailable.</p>
+            )}
+          </article>
+        ))}
+      </div>
+      {data.source && (
+        <details className="panel">
+          <summary>Saved-result provenance</summary>
+          <p>{data.source}</p>
+          <small>{data.sha256}</small>
+        </details>
+      )}
+    </>
+  );
+}
+export default function LocalDemo({ apiBase }: { apiBase: string }) {
+  return <CycloneIntelligence apiBase={apiBase} enabled />;
 }

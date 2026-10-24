@@ -129,3 +129,29 @@ def historical_predict(data: HistoricalInput, request: Request):
         output[target] = result
     return {'mode': 'retrospective_manual_features', 'results': output,
             'notice': 'Historical model demonstration only; no GDACS mapping. Probabilities are not operational confidence.'}
+
+
+@router.get('/performance', dependencies=[Depends(local_only)])
+def performance():
+    """Allowlisted aggregate validation metrics only; never read test outputs."""
+    path = ROOT / 'docs/model_evaluation/validation_metrics.json'
+    if not path.is_file():
+        return {'status': 'unavailable', 'rows': [], 'reason': 'Saved validation results missing'}
+    try:
+        import hashlib
+        raw = path.read_bytes()
+        saved = json.loads(raw)
+        rows = []
+        for target in TARGETS:
+            for key, label in [('baseline_dummy_most_frequent', 'Dummy baseline'), ('random_forest', 'Random Forest')]:
+                metrics = saved[target][key]
+                accuracy, macro = float(metrics['accuracy']), float(metrics['macro_f1'])
+                if not all(math.isfinite(v) and 0 <= v <= 1 for v in (accuracy, macro)):
+                    raise ValueError('Invalid metrics')
+                rows.append({'target': target, 'model': label, 'accuracy': accuracy,
+                             'macro_f1': macro, 'validation_samples': int(saved[target]['dataset_info']['val_samples'])})
+        return {'status': 'available', 'rows': rows, 'cohort': 'Historical all-hazard EM-DAT validation, not matched cyclone subset',
+                'period': '2020–2022', 'source': 'docs/model_evaluation/validation_metrics.json',
+                'sha256': hashlib.sha256(raw).hexdigest()}
+    except (OSError, ValueError, KeyError, TypeError):
+        raise HTTPException(422, 'Saved validation results invalid') from None
