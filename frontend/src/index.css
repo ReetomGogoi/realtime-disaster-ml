@@ -1206,7 +1206,7 @@ footer > div { display: flex; flex-direction: column; gap: 4px; }.footer b, foot
 .premium-disaster-map .leaflet-control-attribution a { color: #72c8d3 !important; }
 .disaster-div-icon { background: transparent !important; border: 0 !important; }
 .disaster-marker { --hazard-color: #8392a5; --severity-color: #66788b; position: relative; display: grid; place-items: center; width: 32px; height: 32px; margin: 2px; color: var(--hazard-color); border: 1px solid #647587; border-radius: 9px; background: #0a1924f2; box-shadow: 0 3px 9px #0008; transition: transform .15s ease, border-color .15s ease; }
-.disaster-marker .hazard-svg { position: relative; z-index: 2; width: 18px; height: 18px; }
+.marker-core-dot { position: relative; z-index: 2; width: 8px; height: 8px; border: 1px solid color-mix(in srgb, var(--hazard-color) 65%, white); border-radius: 50%; background: var(--hazard-color); box-shadow: 0 0 0 3px color-mix(in srgb, var(--hazard-color) 13%, transparent); }
 .disaster-marker.has-severity { border: 2px solid var(--severity-color); }
 .disaster-marker.is-selected, .leaflet-marker-icon:hover .disaster-marker, .leaflet-marker-icon:focus .disaster-marker { transform: translateY(-2px) scale(1.06); border-color: #d9fbff; box-shadow: 0 5px 12px #0009; }
 .marker-ripple { position: absolute; z-index: 0; inset: 1px; border: 1px solid color-mix(in srgb, var(--hazard-color) 58%, transparent); border-radius: 50%; opacity: 0; pointer-events: none; }
@@ -1252,7 +1252,7 @@ footer > div { display: flex; flex-direction: column; gap: 4px; }.footer b, foot
 .legend-categories button:hover, .legend-categories button.active { background: #102b3a; border-color: #28566c; color: #e2f8ff; }
 .legend-categories button.active { box-shadow: inset 2px 0 #44d7dd; }
 .legend-categories button > span:nth-child(2) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 9px; }.legend-categories button > b { color: #6f91a5; font-size: 8px; }
-.legend-hazard-icon { width: 25px; height: 25px; display: grid; place-items: center; border: 1px solid color-mix(in srgb, currentColor 35%, transparent); border-radius: 7px; background: color-mix(in srgb, currentColor 8%, #071520); }.legend-hazard-icon .hazard-svg { width: 15px; height: 15px; }
+.legend-hazard-icon { width: 25px; height: 25px; display: grid; place-items: center; border: 1px solid color-mix(in srgb, currentColor 24%, transparent); border-radius: 7px; background: color-mix(in srgb, currentColor 6%, #071520); }.legend-hazard-icon i { width: 7px; height: 7px; border-radius: 50%; background: currentColor; box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 12%, transparent); }
 .legend-categories p { margin: 9px; color: #6f8799; font-size: 9px; line-height: 1.5; }
 .legend-clear { width: calc(100% - 16px); margin: 0 8px 8px; padding: 7px; color: #77cfd6; border-color: #244c5e; background: #0a2330; font-size: 8px; }
 .severity-legend { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 12px; padding: 12px 13px; border-top: 1px solid #203849; background: #06111a; }

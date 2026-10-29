@@ -13,7 +13,7 @@ import {
 import "leaflet/dist/leaflet.css";
 import { type DisasterEvent } from "../api/client";
 import { HazardIcon } from "./HazardIcon";
-import { hazardDefinition, hazardKey, hazardSvgMarkup, isPublicHazard } from "../utils/hazardMeta";
+import { hazardDefinition, hazardKey, isPublicHazard } from "../utils/hazardMeta";
 import { alertColor, formatUtc, hasCoords } from "../utils/mapUtils";
 
 interface Props { events: DisasterEvent[] }
@@ -62,15 +62,12 @@ function markerIcon(group: MarkerGroup, selected: boolean, expandable: boolean):
   }
   const { hazard, alertLevel } = groupAppearance(group);
   const severity = alertLevel ? alertColor({ alert_level: alertLevel } as DisasterEvent) : null;
-  const iconType = group.events.every((event) => hazardKey(event.disaster_type) === hazard.key)
-    ? group.events[0].disaster_type
-    : null;
   return L.divIcon({
     className: "disaster-div-icon",
     iconSize: [36, 36],
     iconAnchor: [18, 18],
     popupAnchor: [0, -17],
-    html: `<span class="disaster-marker${selected ? " is-selected" : ""}${severity ? " has-severity" : ""}" style="--hazard-color:${hazard.color};--severity-color:${severity ?? "#66788b"}"><span class="marker-ripple ripple-one" aria-hidden="true"></span><span class="marker-ripple ripple-two" aria-hidden="true"></span>${hazardSvgMarkup(iconType)}${group.events.length > 1 ? `<b class="marker-count">${group.events.length}</b>` : ""}</span>`,
+    html: `<span class="disaster-marker${selected ? " is-selected" : ""}${severity ? " has-severity" : ""}" style="--hazard-color:${hazard.color};--severity-color:${severity ?? "#66788b"}"><span class="marker-ripple ripple-one" aria-hidden="true"></span><span class="marker-ripple ripple-two" aria-hidden="true"></span><i class="marker-core-dot" aria-hidden="true"></i>${group.events.length > 1 ? `<b class="marker-count">${group.events.length}</b>` : ""}</span>`,
   });
 }
 

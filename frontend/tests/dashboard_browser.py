@@ -80,7 +80,8 @@ def run():
         page.get_by_role('searchbox').fill('')
         nav.get_by_role('button',name='Dashboard').click()
         expect(page.locator('.disaster-marker')).to_have_count(3)
-        expect(page.locator('.disaster-marker .hazard-svg')).to_have_count(3)
+        expect(page.locator('.disaster-marker .marker-core-dot')).to_have_count(3)
+        expect(page.locator('.legend-hazard-icon i')).to_have_count(3)
         ripple_toggle = page.get_by_role('button', name='Disable decorative marker ripple animation')
         expect(ripple_toggle).to_have_attribute('aria-pressed', 'true')
         visible_marker = None
@@ -164,7 +165,7 @@ def run():
         assert not errors, errors
         # The only refresh above is intercepted with a synthetic response.
         assert not any('/local-demo/historical-predict' in url for url in requests)
-        print('PASS: map SVG categories, focused ripples, motion toggle, dense/reduced-motion defaults, severity borders, grouped events, keyboard popup, legend filter/collapse, attribution and mobile states.')
+        print('PASS: category dots, focused ripples, motion toggle, dense/reduced-motion defaults, severity borders, grouped events, keyboard popup, legend filter/collapse, attribution and mobile states.')
         print('Screenshots:',output)
         browser.close()
 

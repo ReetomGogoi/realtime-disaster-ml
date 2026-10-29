@@ -1,6 +1,5 @@
 import { useMemo, useState } from "react";
 import type { DisasterEvent } from "../api/client";
-import { HazardIcon } from "./HazardIcon";
 import { PUBLIC_HAZARD_TYPES, hazardDefinition, isPublicHazard } from "../utils/hazardMeta";
 import { ALERT_COLORS, hasCoords } from "../utils/mapUtils";
 
@@ -52,7 +51,7 @@ export default function MapLegend({ events, activeHazard, onHazardChange }: Prop
                   aria-label={`${active ? "Clear" : "Show"} ${type} filter, ${count} mapped events`}
                   onClick={() => onHazardChange(active ? "" : type)}
                 >
-                  <span className="legend-hazard-icon" style={{ color: hazard.color }}><HazardIcon type={type} /></span>
+                  <span className="legend-hazard-icon" style={{ color: hazard.color }} aria-hidden="true"><i /></span>
                   <span>{type}</span>
                   <b>{count}</b>
                 </button>
