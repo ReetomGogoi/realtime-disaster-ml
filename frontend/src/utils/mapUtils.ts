@@ -3,15 +3,9 @@ import { hazardDefinition } from "./hazardMeta";
 
 /** Colour for each disaster type marker */
 export const DISASTER_COLORS: Record<string, string> = {
-  Earthquake: "#ff6577",
   Flood: "#4aa8ff",
-  "Tropical Cyclone": "#b381ff",
-  Storm: "#b381ff",
-  Wildfire: "#ff7b45",
   Drought: "#e4b657",
-  Landslide: "#cf9b5b",
-  "Volcanic Event": "#ff9c55",
-  "Volcanic activity": "#ff9c55",
+  Earthquake: "#ff824d",
 };
 
 export const DEFAULT_MARKER_COLOR = "#6b7280"; // grey for unknown types

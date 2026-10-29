@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import type { DisasterEvent } from "../api/client";
 import { HazardIcon } from "./HazardIcon";
-import { hazardDefinition } from "../utils/hazardMeta";
+import { PUBLIC_HAZARD_TYPES, hazardDefinition, isPublicHazard } from "../utils/hazardMeta";
 import { ALERT_COLORS, hasCoords } from "../utils/mapUtils";
 
 type Props = {
@@ -12,14 +12,15 @@ type Props = {
 
 export default function MapLegend({ events, activeHazard, onHazardChange }: Props) {
   const [collapsed, setCollapsed] = useState(false);
-  const mappable = useMemo(() => events.filter(hasCoords), [events]);
+  const mappable = useMemo(
+    () => events.filter((event) => hasCoords(event) && isPublicHazard(event.disaster_type)),
+    [events],
+  );
   const categories = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const event of mappable) {
-      const type = event.disaster_type?.trim() || "Other";
-      counts.set(type, (counts.get(type) ?? 0) + 1);
-    }
-    return [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+    return PUBLIC_HAZARD_TYPES.map((type) => [
+      type,
+      mappable.filter((event) => event.disaster_type === type).length,
+    ] as const);
   }, [mappable]);
   const severityCounts = useMemo(() => ({
     Green: mappable.filter((event) => event.alert_level === "Green").length,
@@ -57,11 +58,10 @@ export default function MapLegend({ events, activeHazard, onHazardChange }: Prop
                 </button>
               );
             })}
-            {!categories.length && <p>No hazard categories in the current saved-event response.</p>}
           </div>
           {activeHazard && <button className="legend-clear" onClick={() => onHazardChange("")}>Show all mapped hazards</button>}
           <div className="severity-legend">
-            <span className="severity-title">GDACS ALERT LEVEL <small>border / halo</small></span>
+            <span className="severity-title">GDACS ALERT LEVEL <small>marker border</small></span>
             {(Object.keys(ALERT_COLORS) as Array<keyof typeof ALERT_COLORS>).map((level) => (
               <span key={level}><i style={{ borderColor: ALERT_COLORS[level], boxShadow: `0 0 0 2px ${ALERT_COLORS[level]}22` }} />{level}<b>{severityCounts[level]}</b></span>
             ))}

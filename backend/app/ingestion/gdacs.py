@@ -66,6 +66,7 @@ _DISASTER_TYPE_MAP: dict[str, str] = {
     "VO": "Volcanic Event",
     "WF": "Wildfire",
     "LS": "Landslide",
+    "DR": "Drought",
 }
 
 

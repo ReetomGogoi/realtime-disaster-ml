@@ -28,6 +28,10 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
+# Public monitoring scope. Other stored hazards remain intact for research and
+# historical audit, but are not returned by the public saved-event routes.
+PUBLIC_DISASTER_TYPES = ("Flood", "Drought", "Earthquake")
+
 
 def _gdacs_alert_level(row: Event) -> str | None:
     """Expose only a recognized source alert level; never infer severity."""
@@ -227,11 +231,12 @@ def list_events(
     include_predictions: Annotated[bool, Query(description="Include guarded ML status and, only when eligible, model class probabilities")] = False,
 ) -> EventListOut:
     """
-    Return events ordered by event_time descending (newest first).
+    Return public-scope Flood, Drought, and Earthquake events ordered by
+    event_time descending (newest first). Other stored hazards are untouched.
     Supports pagination via limit/offset and optional filters.
     raw_payload is excluded from the response.
     """
-    stmt = select(Event)
+    stmt = select(Event).where(Event.disaster_type.in_(PUBLIC_DISASTER_TYPES))
 
     if disaster_type:
         stmt = stmt.where(Event.disaster_type == disaster_type)
@@ -277,10 +282,13 @@ def get_event(
 ) -> EventOut:
     """
     Retrieve one event by its internal integer ID.
-    Returns HTTP 404 when no matching event exists.
+    Returns HTTP 404 when no matching in-scope event exists.
     raw_payload is excluded from the response.
     """
-    stmt = select(Event).where(Event.id == event_id)
+    stmt = select(Event).where(
+        Event.id == event_id,
+        Event.disaster_type.in_(PUBLIC_DISASTER_TYPES),
+    )
     row = db.execute(stmt).scalar_one_or_none()
 
     if row is None:

@@ -47,6 +47,7 @@ class EventStorageTests(unittest.TestCase):
         ET.SubElement(item, f"{{{_GDACS_NAMESPACE}}}country").text = _LONG_GDACS_COUNTRY
         parsed = _item_to_dict(item)
         self.assertEqual(parsed["source_event_id"], "DR:1018332")
+        self.assertEqual(parsed["disaster_type"], "Drought")
         self.assertEqual(parsed["title"], _LONG_GDACS_TITLE)
         self.assertEqual(len(parsed["country"]), 267)
         self.assertEqual(parsed["country"], _LONG_GDACS_COUNTRY)

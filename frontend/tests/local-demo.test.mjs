@@ -6,7 +6,7 @@ import ts from "typescript";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
-test("cyclone observation rendering excludes the removed prediction lab", async () => {
+test("public navigation excludes prediction and cyclone research interfaces", async () => {
   const directory = await mkdtemp(new URL("./.local-demo-", import.meta.url));
   try {
     const appSource = await readFile(
@@ -20,13 +20,13 @@ test("cyclone observation rendering excludes the removed prediction lab", async 
       [
         "Dashboard",
         "Disaster Explorer",
-        "Cyclone Intelligence",
         "Model Performance",
         "About",
       ],
     );
     assert.doesNotMatch(appSource, /ML Prediction Lab/);
     assert.doesNotMatch(appSource, /PredictionLab/);
+    assert.doesNotMatch(appSource, /CycloneIntelligence/);
     const source = await readFile(
       new URL("../src/components/LocalDemo.tsx", import.meta.url),
       "utf8",

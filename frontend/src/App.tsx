@@ -8,49 +8,39 @@ import {
 } from "./api/client";
 import DisasterMap from "./components/DisasterMap";
 import MapLegend from "./components/MapLegend";
-import {
-  CycloneIntelligence,
-  ModelPerformance,
-  Skeleton,
-} from "./components/LocalDemo";
+import { ModelPerformance, Skeleton } from "./components/LocalDemo";
 import { formatUtc, hasCoords, markerColor } from "./utils/mapUtils";
+import { PUBLIC_HAZARD_TYPES, isPublicHazard } from "./utils/hazardMeta";
 
 const pages = [
   "Dashboard",
   "Disaster Explorer",
-  "Cyclone Intelligence",
   "Model Performance",
   "About",
 ] as const;
-const icons = ["◫", "◎", "◉", "▥", "ⓘ"];
+const icons = ["◫", "◎", "▥", "ⓘ"];
 type Page = (typeof pages)[number];
 const pageMeta: Record<Page, { index: string; eyebrow: string; title: string; description: string }> = {
   Dashboard: {
     index: "01",
     eyebrow: "GLOBAL OPERATIONS OVERVIEW",
-    title: "Global hazards, clarified.",
-    description: "Monitor official observations, explore geographic context, and keep evidence separate from prediction.",
+    title: "Three hazards. One clear view.",
+    description: "Monitor official Flood, Drought, and Earthquake observations while keeping source evidence separate from prediction.",
   },
   "Disaster Explorer": {
     index: "02",
     eyebrow: "OFFICIAL EVENT CATALOGUE",
     title: "Disaster Explorer",
-    description: "Search the complete saved-event record with source identity, timing, geography, and direct report links.",
-  },
-  "Cyclone Intelligence": {
-    index: "03",
-    eyebrow: "TROPICAL CYCLONE OBSERVATIONS",
-    title: "Cyclone Intelligence",
-    description: "Inspect current GDACS cyclone observations and versioned research archives without mixing their provenance.",
+    description: "Search scoped Flood, Drought, and Earthquake records with source identity, timing, geography, and report links.",
   },
   "Model Performance": {
-    index: "04",
+    index: "03",
     eyebrow: "HISTORICAL VALIDATION EVIDENCE",
     title: "Model Performance",
     description: "Review saved validation results with explicit cohort scope, metric definitions, and evidence boundaries.",
   },
   About: {
-    index: "05",
+    index: "04",
     eyebrow: "METHODS & DATA PROVENANCE",
     title: "Built around evidence.",
     description: "Understand the data sources, temporal protocol, research architecture, and limits of operational use.",
@@ -59,11 +49,12 @@ const pageMeta: Record<Page, { index: string; eyebrow: string; title: string; de
 const localEnabled =
   import.meta.env.DEV && import.meta.env.VITE_ENABLE_LOCAL_ML_DEMO === "1";
 async function loadEvents(): Promise<EventListResponse> {
-  const records: DisasterEvent[] = [];
+  const scopedRecords: DisasterEvent[] = [];
+  let fetched = 0;
   let total = 0;
   do {
     const response = await fetch(
-      `${API_BASE}/events?limit=500&offset=${records.length}`,
+      `${API_BASE}/events?limit=500&offset=${fetched}`,
     );
     if (!response.ok)
       throw new Error(
@@ -71,17 +62,14 @@ async function loadEvents(): Promise<EventListResponse> {
       );
     const page: EventListResponse = await response.json();
     total = page.total;
-    records.push(...page.events);
+    fetched += page.events.length;
+    scopedRecords.push(...page.events.filter((event) => isPublicHazard(event.disaster_type)));
     if (page.events.length === 0) break;
-  } while (records.length < total);
-  return { total, limit: records.length, offset: 0, events: records };
+  } while (fetched < total);
+  return { total: scopedRecords.length, limit: scopedRecords.length, offset: 0, events: scopedRecords };
 }
 export default function App() {
-  const [page, setPage] = useState<Page>(
-    new URLSearchParams(window.location.search).get("demo") === "1"
-      ? "Cyclone Intelligence"
-      : "Dashboard",
-  );
+  const [page, setPage] = useState<Page>("Dashboard");
   const [menu, setMenu] = useState(false),
     [search, setSearch] = useState(""),
     [hazard, setHazard] = useState(""),
@@ -97,12 +85,9 @@ export default function App() {
   });
   const sync = useMutation({
     mutationFn: syncLiveEvents,
-    onSuccess: (result) => {
-      setMessage(
-        `Refresh complete: ${result.fetched_count} fetched · ${result.inserted_count} new · ${result.updated_count} updated`,
-      );
+    onSuccess: () => {
+      setMessage("GDACS refresh complete. Public Flood, Drought, and Earthquake records updated.");
       void client.invalidateQueries({ queryKey: ["dashboard-events"] });
-      void client.invalidateQueries({ queryKey: ["latest-cyclones"] });
     },
     onError: (error) => setMessage(`Refresh failed: ${error.message}`),
   });
@@ -122,11 +107,7 @@ export default function App() {
         .toLowerCase()
         .includes(search.toLowerCase()),
   );
-  const types = [
-    ...new Set(
-      events.map((e) => e.disaster_type).filter((v): v is string => Boolean(v)),
-    ),
-  ].sort();
+  const types = [...PUBLIC_HAZARD_TYPES];
   const countries = [
     ...new Set(
       events.map((e) => e.country).filter((v): v is string => Boolean(v)),
@@ -220,7 +201,7 @@ export default function App() {
               <span className="nav-icon">{icons[index]}</span>
               <span className="nav-copy">
                 <b>{name}</b>
-                <small>{["Command overview", "Search & investigate", "Live & archived", "Validation evidence", "Methods & provenance"][index]}</small>
+                <small>{["Command overview", "Search & investigate", "Validation evidence", "Methods & provenance"][index]}</small>
               </span>
               <span className="nav-index">0{index + 1}</span>
             </button>
@@ -316,7 +297,7 @@ export default function App() {
                         <span><i className="pulse-dot" /> Monitoring workspace operational</span>
                         <span>{events.length.toLocaleString()} records loaded</span>
                         <span>{mappedPercent}% geocoded</span>
-                        <span>Source: GDACS</span>
+                        <span>Scope: Flood · Drought · Earthquake</span>
                       </div>
                       <div className="kpi-grid">
                         {[
@@ -366,7 +347,7 @@ export default function App() {
                               <span className="eyebrow">
                                 GEOSPATIAL OVERVIEW
                               </span>
-                              <h2>Global event monitor</h2>
+                              <h2>Three-hazard event monitor</h2>
                             </div>
                             <div className="map-statuses">
                               <span className="badge"><i className="status-dot" /> LIVE DATA</span>
@@ -378,12 +359,12 @@ export default function App() {
                             <MapLegend events={legendEvents} activeHazard={hazard} onHazardChange={setHazard} />
                             <div className="map-hud">
                               <span>VISIBLE LAYER</span>
-                              <b>Global disaster events</b>
+                              <b>Flood · Drought · Earthquake</b>
                               <small>{filtered.filter(hasCoords).length.toLocaleString()} visible markers · {mappedPercent}% overall coordinate coverage</small>
                             </div>
                           </div>
                           <div className="map-caption">
-                            OpenStreetMap · Icon shape identifies hazard type; border and halo show recognized GDACS alert level only.
+                            OpenStreetMap · Icon shape identifies hazard type; marker border shows recognized GDACS alert level only.
                           </div>
                         </section>
                         <section className="panel distribution">
@@ -497,9 +478,7 @@ export default function App() {
                       </div>
                       <div className="section-toolbar">
                         <p>{filtered.length} matching records</p>
-                        <span className="badge">
-                          Severity unavailable in saved-event API
-                        </span>
+                        <span className="badge">Public scope · Flood, Drought, Earthquake</span>
                       </div>
                       <section className="panel explorer-results">{eventList(recent)}</section>
                     </>
@@ -507,9 +486,6 @@ export default function App() {
                 </>
               )}
             </>
-          )}
-          {page === "Cyclone Intelligence" && (
-            <CycloneIntelligence apiBase={API_BASE} enabled={localEnabled} />
           )}
           {page === "Model Performance" && (
             <ModelPerformance apiBase={API_BASE} enabled={localEnabled} />
@@ -524,12 +500,16 @@ export default function App() {
                 </div>
                 <div className="about-seal"><span>HUMAN</span><b>REVIEWED</b><small>DECISION SUPPORT</small></div>
               </div>
+              <div className="evidence-banner">
+                <span>i</span>
+                <p><b>Public monitoring scope:</b> Flood, Drought, and Earthquake. Historical research models and saved validation results were not retrained for this restricted display scope.</p>
+              </div>
               <div className="about-grid">
                 {[
                   [
                     "GDACS",
                     "Live monitoring",
-                    "Official alerts power the saved-event map. Archived cyclone snapshots preserve original response bytes and source attributes.",
+                    "Official source observations power the public Flood, Drought, and Earthquake map. Other stored hazards remain outside the displayed scope.",
                   ],
                   [
                     "EM-DAT",
@@ -538,8 +518,8 @@ export default function App() {
                   ],
                   [
                     "IBTrACS",
-                    "Cyclone research",
-                    "Historical cyclone tracks enrich retrospective experiments. Best-track timestamps do not prove real-time publication availability.",
+                    "Retained historical research",
+                    "Historical cyclone experiments remain preserved in the repository but are not part of the public monitoring interface.",
                   ],
                 ].map(([name, role, text]) => (
                   <article className="panel source-card" key={name}>

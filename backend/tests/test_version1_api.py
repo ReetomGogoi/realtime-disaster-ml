@@ -117,11 +117,16 @@ class Version1ApiRegressionTests(unittest.TestCase):
             event_time=datetime(2026, 10, 21, 8, tzinfo=timezone.utc),
         )
         newer["raw_payload"]["alertlevel"] = "Orange"
+        cyclone = self.event("TC:outside-public-scope")
+        cyclone["disaster_type"] = "Tropical Cyclone"
         with Session(self.engine) as session:
-            session.add_all([Event(**older), Event(**newer)])
+            session.add_all([Event(**older), Event(**newer), Event(**cyclone)])
             session.commit()
             newer_id = session.execute(
                 select(Event.id).where(Event.source_event_id == "EQ:newer")
+            ).scalar_one()
+            cyclone_id = session.execute(
+                select(Event.id).where(Event.source_event_id == "TC:outside-public-scope")
             ).scalar_one()
 
         page = self.client.get("/events", params={"limit": 1, "offset": 0})
@@ -171,6 +176,12 @@ class Version1ApiRegressionTests(unittest.TestCase):
 
         missing = self.client.get("/events/999999")
         self.assertEqual(missing.status_code, 404)
+        self.assertEqual(self.client.get(f"/events/{cyclone_id}").status_code, 404)
+        unsupported_filter = self.client.get(
+            "/events", params={"disaster_type": "Tropical Cyclone"}
+        )
+        self.assertEqual(unsupported_filter.status_code, 200)
+        self.assertEqual(unsupported_filter.json()["total"], 0)
 
     def test_mocked_sync_preserves_long_country_and_deduplicates(self):
         first = self.event(
