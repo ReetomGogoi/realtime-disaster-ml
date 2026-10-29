@@ -24,6 +24,38 @@ const pages = [
 ] as const;
 const icons = ["◫", "◎", "◉", "▥", "ⓘ"];
 type Page = (typeof pages)[number];
+const pageMeta: Record<Page, { index: string; eyebrow: string; title: string; description: string }> = {
+  Dashboard: {
+    index: "01",
+    eyebrow: "GLOBAL OPERATIONS OVERVIEW",
+    title: "Global hazards, clarified.",
+    description: "Monitor official observations, explore geographic context, and keep evidence separate from prediction.",
+  },
+  "Disaster Explorer": {
+    index: "02",
+    eyebrow: "OFFICIAL EVENT CATALOGUE",
+    title: "Disaster Explorer",
+    description: "Search the complete saved-event record with source identity, timing, geography, and direct report links.",
+  },
+  "Cyclone Intelligence": {
+    index: "03",
+    eyebrow: "TROPICAL CYCLONE OBSERVATIONS",
+    title: "Cyclone Intelligence",
+    description: "Inspect current GDACS cyclone observations and versioned research archives without mixing their provenance.",
+  },
+  "Model Performance": {
+    index: "04",
+    eyebrow: "HISTORICAL VALIDATION EVIDENCE",
+    title: "Model Performance",
+    description: "Review saved validation results with explicit cohort scope, metric definitions, and evidence boundaries.",
+  },
+  About: {
+    index: "05",
+    eyebrow: "METHODS & DATA PROVENANCE",
+    title: "Built around evidence.",
+    description: "Understand the data sources, temporal protocol, research architecture, and limits of operational use.",
+  },
+};
 const localEnabled =
   import.meta.env.DEV && import.meta.env.VITE_ENABLE_LOCAL_ML_DEMO === "1";
 async function loadEvents(): Promise<EventListResponse> {
@@ -104,6 +136,9 @@ export default function App() {
   );
   const mapped = events.filter(hasCoords).length;
   const total = query.data?.total;
+  const mappedPercent = events.length ? Math.round((mapped / events.length) * 100) : 0;
+  const latestRetrieved = recent[0]?.fetched_at;
+  const activeFilterCount = [search, hazard, country].filter(Boolean).length;
   function navigate(next: Page) {
     setPage(next);
     setMenu(false);
@@ -117,18 +152,21 @@ export default function App() {
             key={event.id}
             onClick={() => setSelected(event)}
           >
-            <span className="hazard-icon" style={{ color: markerColor(event) }}>
-              ◎
+            <span
+              className="hazard-icon"
+              style={{ color: markerColor(event), borderColor: `${markerColor(event)}66` }}
+            >
+              <i style={{ background: markerColor(event) }} />
             </span>
-            <span>
+            <span className="event-copy">
+              <span className="event-tags">
+                <em>{event.disaster_type ?? "Unknown type"}</em>
+                <em>{event.country ?? "Country unavailable"}</em>
+              </span>
               <b>{event.title}</b>
-              <small>
-                {event.country ?? "Country unavailable"} ·{" "}
-                {event.disaster_type ?? "Unknown type"}
-              </small>
-              <small>Event time: {formatUtc(event.event_time)}</small>
+              <small>{formatUtc(event.event_time)} · {event.source_event_id}</small>
             </span>
-            <span className="row-arrow">↗</span>
+            <span className="row-arrow" aria-hidden="true">→</span>
           </button>
         ))}
         {list.length === 0 && (
@@ -153,9 +191,13 @@ export default function App() {
             navigate("Dashboard");
           }}
         >
-          <span className="brand-mark">◈</span>
-          <span>
-            DISASTER<span className="brand-light">INTELLIGENCE</span>
+          <span className="brand-mark" aria-hidden="true">
+            <i />
+            <i />
+            <b>DI</b>
+          </span>
+          <span className="brand-copy">
+            <b>DISASTER</b><span className="brand-light">INTELLIGENCE</span>
           </span>
         </a>
         <div className="nav-label">WORKSPACE</div>
@@ -167,20 +209,25 @@ export default function App() {
               aria-current={page === name ? "page" : undefined}
               onClick={() => navigate(name)}
             >
-              <span>{icons[index]}</span>
-              {name}
-              {index === 2 && <small>ARCHIVE</small>}
+              <span className="nav-icon">{icons[index]}</span>
+              <span className="nav-copy">
+                <b>{name}</b>
+                <small>{["Command overview", "Search & investigate", "Live & archived", "Validation evidence", "Methods & provenance"][index]}</small>
+              </span>
+              <span className="nav-index">0{index + 1}</span>
             </button>
           ))}
         </nav>
         <div className="sidebar-bottom">
-          <span className="status-dot" /> Official GDACS source
-          <p>Academic research platform</p>
-          <small>
-            Human-reviewed decision support.
-            <br />
-            Not an official warning system.
-          </small>
+          <div className="source-lockup">
+            <span className="status-dot" />
+            <span><b>GDACS connected</b><small>Official monitoring source</small></span>
+          </div>
+          <div className="research-card">
+            <span>RESEARCH PLATFORM</span>
+            <p>Observations for human review.</p>
+            <small>Not an official warning or dispatch system.</small>
+          </div>
         </div>
       </aside>
       {menu && (
@@ -192,7 +239,7 @@ export default function App() {
       )}
       <div className="workspace">
         <header className="topbar">
-          <div>
+          <div className="topbar-context">
             <button
               className="menu-toggle"
               aria-label="Toggle navigation"
@@ -200,9 +247,7 @@ export default function App() {
             >
               ☰
             </button>
-            <span className="breadcrumb">
-              WORKSPACE <span>/ {page}</span>
-            </span>
+            <span className="breadcrumb"><b>{pageMeta[page].index}</b> / {page}</span>
           </div>
           <div className="topbar-right">
             <span className="connection">
@@ -215,38 +260,27 @@ export default function App() {
                   ? "Connecting"
                   : "Monitoring connected"}
             </span>
-            <span className="research-badge">RESEARCH · V2</span>
+            <span className="topbar-separator" />
+            <span className="research-badge">RESEARCH SYSTEM · V2</span>
           </div>
         </header>
         <main id="content">
           <div className="page-heading">
-            <div>
-              <div className="eyebrow">GLOBAL DISASTER INTELLIGENCE</div>
-              <h1>
-                {page === "Dashboard"
-                  ? "A clearer picture. A better response."
-                  : page}
-              </h1>
-              <p>
-                {page === "Dashboard"
-                  ? "Monitor official events, explore evidence, and understand the limits of prediction."
-                  : page === "Disaster Explorer"
-                    ? "Search saved official records. Every event links back to its source."
-                    : page === "Cyclone Intelligence"
-                      ? "Source observations with transparent units and collection provenance."
-                      : page === "Model Performance"
-                          ? "Evidence-led evaluation. Saved validation results, clearly scoped."
-                          : "The data, methodology, and boundaries behind this project."}
-              </p>
+            <div className="heading-copy">
+              <div className="eyebrow"><span>{pageMeta[page].index}</span>{pageMeta[page].eyebrow}</div>
+              <h1>{pageMeta[page].title}</h1>
+              <p>{pageMeta[page].description}</p>
             </div>
             {["Dashboard", "Disaster Explorer"].includes(page) && (
-              <button
-                className="primary"
-                disabled={sync.isPending || query.isFetching}
-                onClick={() => sync.mutate()}
-              >
-                {sync.isPending ? "Refreshing…" : "↻ Refresh GDACS"}
-              </button>
+              <div className="heading-actions">
+                <div className="last-update">
+                  <span>LAST RETRIEVED</span>
+                  <b>{latestRetrieved ? formatUtc(latestRetrieved) : "Unavailable"}</b>
+                </div>
+                <button className="primary" disabled={sync.isPending || query.isFetching} onClick={() => sync.mutate()}>
+                  <span aria-hidden="true">↻</span>{sync.isPending ? "Refreshing…" : "Refresh GDACS"}
+                </button>
+              </div>
             )}
           </div>
           {message && (
@@ -270,40 +304,50 @@ export default function App() {
                 <>
                   {page === "Dashboard" && (
                     <>
+                      <div className="operations-strip">
+                        <span><i className="pulse-dot" /> Monitoring workspace operational</span>
+                        <span>{events.length.toLocaleString()} records loaded</span>
+                        <span>{mappedPercent}% geocoded</span>
+                        <span>Source: GDACS</span>
+                      </div>
                       <div className="kpi-grid">
                         {[
                           [
                             "Saved events",
                             total ?? "—",
                             "Official records in storage",
-                            "◫",
+                            "01",
+                            "blue",
                           ],
                           [
                             "Mapped events",
                             mapped,
                             "Records with coordinates",
-                            "◎",
+                            `${mappedPercent}%`,
+                            "cyan",
                           ],
                           [
                             "Hazard categories",
                             types.length,
                             "Across loaded saved events",
-                            "◈",
+                            "03",
+                            "violet",
                           ],
                           [
                             "Alert severity",
-                            "Not supplied",
-                            "Saved event API has no alert-level field",
-                            "◉",
+                            "Unavailable",
+                            "Not exposed by saved-event API",
+                            "—",
+                            "amber",
                           ],
-                        ].map(([label, value, note, icon]) => (
-                          <article className="kpi" key={label}>
+                        ].map(([label, value, note, icon, accent]) => (
+                          <article className={`kpi accent-${accent}`} key={label}>
                             <div className="kpi-top">
                               <span>{label}</span>
                               <span>{icon}</span>
                             </div>
                             <strong>{value}</strong>
-                            <small>{note}</small>
+                            <div className="kpi-foot"><small>{note}</small><i /></div>
                           </article>
                         ))}
                       </div>
@@ -316,11 +360,19 @@ export default function App() {
                               </span>
                               <h2>Global event monitor</h2>
                             </div>
-                            <span className="badge">{mapped} mapped</span>
+                            <div className="map-statuses">
+                              <span className="badge"><i className="status-dot" /> LIVE DATA</span>
+                              <span className="badge">{mapped.toLocaleString()} MAPPED</span>
+                            </div>
                           </div>
                           <div className="map-canvas">
                             <DisasterMap events={events} />
                             <MapLegend />
+                            <div className="map-hud">
+                              <span>VISIBLE LAYER</span>
+                              <b>Global disaster events</b>
+                              <small>{mappedPercent}% of loaded records include coordinates</small>
+                            </div>
                           </div>
                           <div className="map-caption">
                             OpenStreetMap · Marker colors indicate hazard type,
@@ -328,11 +380,12 @@ export default function App() {
                           </div>
                         </section>
                         <section className="panel distribution">
-                          <span className="eyebrow">EVENT COMPOSITION</span>
+                          <div className="distribution-head">
+                            <span className="eyebrow">EVENT COMPOSITION</span>
+                            <b>{events.length.toLocaleString()}</b>
+                          </div>
                           <h2>Hazard distribution</h2>
-                          <p className="muted">
-                            Actual loaded records · not a risk forecast
-                          </p>
+                          <p className="muted">Actual loaded records · not a risk forecast</p>
                           {counts.map(({ type, count }) => (
                             <div className="distribution-row" key={type}>
                               <div>
@@ -367,13 +420,14 @@ export default function App() {
                           </div>
                         </section>
                       </div>
-                      <section className="panel">
+                      <section className="panel recent-panel">
                         <div className="panel-heading">
                           <div>
                             <span className="eyebrow">
                               LATEST SAVED OBSERVATIONS
                             </span>
                             <h2>Recent disaster records</h2>
+                            <p className="muted">Newest saved monitoring observations</p>
                           </div>
                           <button onClick={() => navigate("Disaster Explorer")}>
                             Explore all →
@@ -385,9 +439,14 @@ export default function App() {
                   )}
                   {page === "Disaster Explorer" && (
                     <>
+                      <div className="explorer-summary">
+                        <article><span>RESULTS</span><b>{filtered.length.toLocaleString()}</b><small>matching saved records</small></article>
+                        <article><span>MAP COVERAGE</span><b>{mappedPercent}%</b><small>{mapped.toLocaleString()} coordinate pairs</small></article>
+                        <article><span>FILTERS</span><b>{activeFilterCount || "None"}</b><small>{activeFilterCount ? "active constraints" : "showing complete catalogue"}</small></article>
+                      </div>
                       <div className="panel filters">
                         <label>
-                          Search records
+                          <span>Search records</span>
                           <input
                             type="search"
                             placeholder="Event, country, or source ID…"
@@ -396,7 +455,7 @@ export default function App() {
                           />
                         </label>
                         <label>
-                          Hazard
+                          <span>Hazard category</span>
                           <select
                             value={hazard}
                             onChange={(e) => setHazard(e.target.value)}
@@ -408,7 +467,7 @@ export default function App() {
                           </select>
                         </label>
                         <label>
-                          Country text
+                          <span>Reported country</span>
                           <select
                             value={country}
                             onChange={(e) => setCountry(e.target.value)}
@@ -426,7 +485,7 @@ export default function App() {
                             setCountry("");
                           }}
                         >
-                          Reset
+                          Clear filters
                         </button>
                       </div>
                       <div className="section-toolbar">
@@ -435,7 +494,7 @@ export default function App() {
                           Severity unavailable in saved-event API
                         </span>
                       </div>
-                      <section className="panel">{eventList(recent)}</section>
+                      <section className="panel explorer-results">{eventList(recent)}</section>
                     </>
                   )}
                 </>
@@ -451,19 +510,12 @@ export default function App() {
           {page === "About" && (
             <>
               <div className="about-hero panel">
-                <span className="eyebrow">
-                  REAL-TIME MULTI-DISASTER IMPACT PRIORITY PREDICTION
-                </span>
-                <h2>
-                  Intelligence grounded
-                  <br />
-                  in transparent evidence.
-                </h2>
-                <p>
-                  We connect official disaster monitoring with historical
-                  machine-learning research, while keeping observations,
-                  predictions, and validation evidence distinct.
-                </p>
+                <div>
+                  <span className="eyebrow">REAL-TIME DISASTER ML · RESEARCH V2</span>
+                  <h2>Intelligence grounded<br />in transparent evidence.</h2>
+                  <p>Official monitoring and historical machine-learning research share one interface while their evidence, timing, and claims remain explicitly separate.</p>
+                </div>
+                <div className="about-seal"><span>HUMAN</span><b>REVIEWED</b><small>DECISION SUPPORT</small></div>
               </div>
               <div className="about-grid">
                 {[
@@ -483,15 +535,16 @@ export default function App() {
                     "Historical cyclone tracks enrich retrospective experiments. Best-track timestamps do not prove real-time publication availability.",
                   ],
                 ].map(([name, role, text]) => (
-                  <article className="panel" key={name}>
+                  <article className="panel source-card" key={name}>
+                    <span className="source-number">0{["GDACS", "EM-DAT", "IBTrACS"].indexOf(name) + 1}</span>
                     <span className="eyebrow">{role}</span>
                     <h2>{name}</h2>
                     <p>{text}</p>
                   </article>
                 ))}
               </div>
-              <section className="panel">
-                <h2>Temporal evaluation protocol</h2>
+              <section className="panel protocol-panel">
+                <div className="panel-heading"><div><span className="eyebrow">RESEARCH DESIGN</span><h2>Temporal evaluation protocol</h2></div><span className="badge">LEAKAGE-AWARE</span></div>
                 <div className="timeline">
                   <div>
                     <b>2000–2019</b>
@@ -521,7 +574,7 @@ export default function App() {
             </>
           )}
           <footer>
-            GDACS source data · OpenStreetMap contributors{" "}
+            <div><b>DISASTER INTELLIGENCE</b><small>GDACS source data · OpenStreetMap contributors</small></div>
             <span>OBSERVATIONS ≠ VALIDATED LIVE PREDICTIONS</span>
           </footer>
         </main>
@@ -561,9 +614,10 @@ export default function App() {
             >
               ✕
             </button>
-            <span className="eyebrow">OFFICIAL SAVED RECORD</span>
+            <div className="drawer-kicker"><span className="eyebrow">OFFICIAL SAVED RECORD</span><span className="badge">{selected.source}</span></div>
             <h2>{selected.title}</h2>
-            <span className="badge">
+            <span className="hazard-badge" style={{ color: markerColor(selected), borderColor: `${markerColor(selected)}77` }}>
+              <i style={{ background: markerColor(selected) }} />
               {selected.disaster_type ?? "Unknown hazard"}
             </span>
             <dl className="detail-grid">

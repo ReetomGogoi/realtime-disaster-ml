@@ -4,12 +4,14 @@ Start isolated backend and opt-in Vite dev server per documentation first.
 Screenshots show actual local API state; synthetic fixtures test filters only.
 """
 import json
+import os
 import tempfile
 from pathlib import Path
 from playwright.sync_api import sync_playwright, expect
 
 
 def run():
+    base_url = os.getenv('DASHBOARD_BASE_URL', 'http://127.0.0.1:5173')
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True, args=['--no-sandbox'])
         page = browser.new_page(viewport={'width': 1512, 'height': 1080}, ignore_https_errors=True)
@@ -17,7 +19,7 @@ def run():
         requests, errors = [], []
         page.on('request', lambda req: requests.append(req.url))
         page.on('pageerror', lambda error: errors.append(str(error)))
-        page.goto('http://127.0.0.1:5173/')
+        page.goto(base_url)
         expect(page.get_by_role('heading', name='Global event monitor')).to_be_visible()
         expect(page.get_by_text('Monitoring connected')).to_be_visible()
         assert any('/events?limit=500&offset=0' in url for url in requests)
@@ -28,13 +30,15 @@ def run():
         nav=page.get_by_role('navigation', name='Main navigation')
         expect(nav.get_by_role('button')).to_have_count(5)
         expect(nav.get_by_text('ML Prediction Lab', exact=True)).to_have_count(0)
-        assert [button.inner_text().strip() for button in nav.get_by_role('button').all()] == [
-            '◫\nDashboard', '◎\nDisaster Explorer',
-            '◉\nCyclone Intelligence\nARCHIVE', '▥\nModel Performance', 'ⓘ\nAbout']
+        for label in ['Dashboard', 'Disaster Explorer', 'Cyclone Intelligence',
+                      'Model Performance', 'About']:
+            expect(nav.get_by_role('button', name=label)).to_have_count(1)
         nav.get_by_role('button', name='Disaster Explorer').click()
         expect(page.get_by_role('searchbox')).to_be_visible()
+        page.screenshot(path=str(output/'disaster-explorer.png'), full_page=True)
         nav.get_by_role('button', name='Cyclone Intelligence').click()
         expect(page.get_by_role('button', name='Latest GDACS Cyclones', exact=True)).to_be_visible()
+        page.screenshot(path=str(output/'cyclone-intelligence.png'), full_page=True)
         page.get_by_role('button',name='Archived Cyclone Observations',exact=True).click()
         expect(page.get_by_text('Local extraction output missing')).to_be_visible()
         nav.get_by_role('button', name='Model Performance').click()
@@ -47,6 +51,7 @@ def run():
         page.get_by_role('button',name='Toggle navigation').click()
         nav.get_by_role('button',name='Dashboard').click()
         expect(page.get_by_role('heading',name='Global event monitor')).to_be_visible()
+        page.wait_for_timeout(300)
         assert page.evaluate('document.documentElement.scrollWidth <= window.innerWidth')
         page.screenshot(path=str(output/'dashboard-mobile.png'),full_page=True)
         # Deterministic synthetic records verify search/filter/detail without

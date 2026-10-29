@@ -36,32 +36,38 @@ export function ObservationCards({
       )}
       {records.map((row, i) => (
         <article className="panel cyclone-card" key={`${row.snapshot_id}-${i}`}>
-          <div className="panel-heading">
-            <span className="eyebrow">
-              TROPICAL CYCLONE ·{" "}
-              {mode === "archive" ? "ARCHIVED" : "LATEST REFRESH"}
-            </span>
+          <div className="cyclone-card-top">
+            <div className="cyclone-symbol" aria-hidden="true"><i /><i /><b>◉</b></div>
+            <div>
+              <span className="eyebrow">TROPICAL CYCLONE · {mode === "archive" ? "ARCHIVED" : "LATEST REFRESH"}</span>
+              <h2>Cyclone {row.fields.event_id?.value ?? "ID unavailable"}</h2>
+            </div>
             <span
               className={`badge severity-${String(row.fields.alert_level?.value ?? "").toLowerCase()}`}
             >
               {shown(row.fields.alert_level)}
             </span>
           </div>
-          <h2>Cyclone {row.fields.event_id?.value ?? "ID unavailable"}</h2>
-          <p className="muted">
-            {row.country_occurrences.join(", ") || "Country unavailable"}
-          </p>
-          <div className="observation-value">
-            {shown(row.fields.severity)}
-            <small>GDACS source severity · original units</small>
+          <div className="cyclone-location">
+            <span>◌</span><p>{row.country_occurrences.join(", ") || "Country unavailable"}</p>
           </div>
-          <dl className="detail-grid">
+          <div className="cyclone-hero-metrics">
+            <div className="observation-value">
+              <span>SEVERITY</span>
+              <b>{shown(row.fields.severity)}</b>
+              <small>GDACS source value · original units</small>
+            </div>
+            <div className="coordinate-block">
+              <span>COORDINATES</span>
+              <b>{shown(row.fields.latitude)}</b>
+              <small>{shown(row.fields.longitude)}</small>
+            </div>
+          </div>
+          <dl className="detail-grid cyclone-details">
             {[
               ["population_exposure", "Modelled exposure"],
               ["vulnerability", "Vulnerability"],
               ["alert_score", "Alert score"],
-              ["latitude", "Latitude"],
-              ["longitude", "Longitude"],
               ["version", "Source version"],
               ["episode_id", "Episode"],
               ["publication_time", "Published"],
@@ -74,12 +80,12 @@ export function ObservationCards({
               </div>
             ))}
           </dl>
-          <p className="notice">
+          <p className="notice exposure-note">
             Exposure (including Pop74) is source-modelled exposure, not observed
             affected population.
           </p>
-          <details>
-            <summary>Observation provenance</summary>
+          <details className="provenance-block">
+            <summary><span>Observation provenance</span><b>View source details +</b></summary>
             <p>Retrieved: {row.retrieved_at_utc}</p>
             <p>Source: {row.source_url ?? "Unavailable"}</p>
             {row.source_url && /^https?:\/\//i.test(row.source_url) && (
@@ -149,37 +155,44 @@ export function CycloneIntelligence({
   const query = view === "latest" ? latest : archive;
   return (
     <>
-      <div className="section-toolbar">
-        <div role="group" aria-label="Cyclone observation source">
+      <div className="cyclone-control-panel">
+        <div>
+          <span className="eyebrow">OBSERVATION SOURCE</span>
+          <h2>Choose an evidence layer</h2>
+          <p>Current refreshes and immutable local archives remain separate.</p>
+        </div>
+        <div className="segmented-control" role="group" aria-label="Cyclone observation source">
           <button
             aria-pressed={view === "latest"}
             onClick={() => setView("latest")}
           >
-            Latest GDACS Cyclones
+            <span className="status-dot" /> Latest GDACS Cyclones
           </button>{" "}
           <button
             aria-pressed={view === "archive"}
             onClick={() => setView("archive")}
           >
-            Archived Cyclone Observations
+            <span aria-hidden="true">◫</span> Archived Cyclone Observations
           </button>
         </div>
       </div>
-      <div className="notice">
-        Near-real-time monitoring after manual refresh, not continuous streaming
-        or validated ML predictions. Population exposure is modelled exposure,
-        not EM-DAT Total Affected.
+      <div className="evidence-banner">
+        <span>i</span>
+        <p><b>Observation layer only.</b> Near-real-time after manual refresh, not continuous streaming or validated ML prediction. Population exposure is modelled exposure, not EM-DAT Total Affected.</p>
       </div>
       {view === "archive" && !enabled ? (
         <LocalUnavailable />
       ) : (
         <>
-          <div className="section-toolbar">
-            <p className="muted">
+          <div className="section-toolbar cyclone-toolbar">
+            <div className="refresh-meta">
+              <span>{view === "latest" ? "LAST SUCCESSFUL REFRESH" : "ARCHIVE POLICY"}</span>
+              <b>
               {view === "latest"
-                ? `Last successful refresh: ${latest.data?.last_successful_refresh_utc ?? "Unavailable"}`
+                ? (latest.data?.last_successful_refresh_utc ?? "Unavailable")
                 : "Versioned local archive · unaffected by live refresh"}
-            </p>
+              </b>
+            </div>
             {view === "latest" ? (
               <button
                 disabled={refresh.isPending || latest.isFetching}
@@ -282,27 +295,36 @@ export function ModelPerformance({
   if (!enabled) return <LocalUnavailable />;
   return (
     <>
-      <p role="status">{message}</p>
-      <div className="notice">
-        {data.cohort ?? "Only saved validation outputs are loaded."} · No
-        reserved test-period results are displayed. These are saved results, not
-        newly measured scores.
+      <section className="performance-hero">
+        <div>
+          <span className="eyebrow">SAVED VALIDATION EVIDENCE</span>
+          <h2>Model results, with their boundaries visible.</h2>
+          <p role="status">{message}</p>
+        </div>
+        <div className="metric-guide">
+          <span><i className="key blue" /> Accuracy</span>
+          <span><i className="key cyan" /> Macro F1</span>
+          <small>Validation period · 2020–2022</small>
+        </div>
+      </section>
+      <div className="evidence-banner">
+        <span>i</span>
+        <p><b>Validation evidence only.</b> {data.cohort ?? "Only saved validation outputs are loaded."} No reserved test-period results are displayed. These are saved results, not newly measured scores.</p>
       </div>
       <div className="result-grid">
-        {["affected_range", "impact_priority"].map((target) => (
-          <article className="panel" key={target}>
-            <h2>{target.replaceAll("_", " ")}</h2>
-            <p className="muted">
-              Accuracy <span className="key blue" /> Macro F1{" "}
-              <span className="key cyan" />
-            </p>
+        {["affected_range", "impact_priority"].map((target, targetIndex) => (
+          <article className="panel performance-card" key={target}>
+            <div className="performance-card-head">
+              <span>0{targetIndex + 1}</span>
+              <div><small>CLASSIFICATION TARGET</small><h2>{target.replaceAll("_", " ")}</h2></div>
+            </div>
             {data.rows
               .filter((row) => row.target === target)
               .map((row) => (
                 <div className="comparison" key={row.model}>
                   <h3>
                     {row.model}
-                    <small>n = {row.validation_samples}</small>
+                    <small>{row.validation_samples.toLocaleString()} validation records</small>
                   </h3>
                   {(["accuracy", "macro_f1"] as const).map((metric) => (
                     <div className="bar-row" key={metric}>
@@ -327,8 +349,8 @@ export function ModelPerformance({
         ))}
       </div>
       {data.source && (
-        <details className="panel">
-          <summary>Saved-result provenance</summary>
+        <details className="panel provenance-block performance-provenance">
+          <summary><span>Saved-result provenance</span><b>Inspect evidence +</b></summary>
           <p>{data.source}</p>
           <small>{data.sha256}</small>
         </details>
