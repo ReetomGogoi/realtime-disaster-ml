@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import L from "leaflet";
 import {
   MapContainer,
@@ -70,7 +70,7 @@ function markerIcon(group: MarkerGroup, selected: boolean, expandable: boolean):
     iconSize: [36, 36],
     iconAnchor: [18, 18],
     popupAnchor: [0, -17],
-    html: `<span class="disaster-marker${selected ? " is-selected" : ""}${severity ? " has-severity" : ""}" style="--hazard-color:${hazard.color};--severity-color:${severity ?? "#66788b"}">${hazardSvgMarkup(iconType)}${group.events.length > 1 ? `<b class="marker-count">${group.events.length}</b>` : ""}</span>`,
+    html: `<span class="disaster-marker${selected ? " is-selected" : ""}${severity ? " has-severity" : ""}" style="--hazard-color:${hazard.color};--severity-color:${severity ?? "#66788b"}"><span class="marker-ripple ripple-one" aria-hidden="true"></span><span class="marker-ripple ripple-two" aria-hidden="true"></span>${hazardSvgMarkup(iconType)}${group.events.length > 1 ? `<b class="marker-count">${group.events.length}</b>` : ""}</span>`,
   });
 }
 
@@ -152,9 +152,37 @@ export default function DisasterMap({ events }: Props) {
     [events],
   );
   const mappedCount = scopedEvents.filter(hasCoords).length;
+  const denseMap = mappedCount > 80;
+  const [motionPreference, setMotionPreference] = useState({ reduced: false, mobile: false });
+  const [animationOverride, setAnimationOverride] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const mobile = window.matchMedia("(max-width: 700px)");
+    const update = () => setMotionPreference({ reduced: reduced.matches, mobile: mobile.matches });
+    update();
+    reduced.addEventListener("change", update);
+    mobile.addEventListener("change", update);
+    return () => {
+      reduced.removeEventListener("change", update);
+      mobile.removeEventListener("change", update);
+    };
+  }, []);
+
+  const defaultAnimation = !denseMap && !motionPreference.mobile;
+  const animationEnabled = !motionPreference.reduced && (animationOverride ?? defaultAnimation);
+  const animationReason = motionPreference.reduced
+    ? "Disabled by your reduced-motion preference"
+    : animationEnabled
+      ? "Selected or hovered markers only"
+      : denseMap
+        ? "Reduced by default on dense maps"
+        : motionPreference.mobile
+          ? "Reduced by default on mobile"
+          : "Paused by user";
 
   return (
-    <div className="map-shell" role="region" aria-label={`Interactive disaster map with ${mappedCount} mapped events`}>
+    <div className={`map-shell${animationEnabled ? " ripples-enabled" : ""}`} role="region" aria-label={`Interactive disaster map with ${mappedCount} mapped events`}>
       <MapContainer
         center={[20, 15]}
         zoom={2.5}
@@ -174,6 +202,19 @@ export default function DisasterMap({ events }: Props) {
         <ScaleControl position="bottomright" imperial={false} />
         <MapEvents events={scopedEvents} />
       </MapContainer>
+      <div className="map-motion-control">
+        <button
+          type="button"
+          aria-pressed={animationEnabled}
+          aria-label={`${animationEnabled ? "Disable" : "Enable"} decorative marker ripple animation`}
+          disabled={motionPreference.reduced}
+          onClick={() => setAnimationOverride(!animationEnabled)}
+        >
+          <span aria-hidden="true" className="motion-control-symbol"><i /></span>
+          <span><b>Marker ripple {animationEnabled ? "on" : "off"}</b><small>{animationReason}</small></span>
+        </button>
+        <p>Visual focus effect only — not disaster radius, impact area, or forecast severity.</p>
+      </div>
       {!mappedCount && <div className="map-empty-state"><HazardIcon type={null} size={22} /><span><b>No mapped records</b>Refresh GDACS or adjust the active hazard filter.</span></div>}
     </div>
   );

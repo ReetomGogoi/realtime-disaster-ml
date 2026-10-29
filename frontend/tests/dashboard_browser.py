@@ -26,6 +26,8 @@ def run():
         output = Path(tempfile.gettempdir()) / 'disaster-dashboard-preview'
         output.mkdir(exist_ok=True)
         expect(page.locator('.leaflet-tile-loaded').first).to_be_visible(timeout=15000)
+        expect(page.get_by_role('button', name='Enable decorative marker ripple animation').or_(
+            page.get_by_role('button', name='Disable decorative marker ripple animation'))).to_have_count(1)
         page.screenshot(path=str(output/'dashboard-desktop.png'), full_page=True)
         nav=page.get_by_role('navigation', name='Main navigation')
         expect(nav.get_by_role('button')).to_have_count(4)
@@ -79,6 +81,28 @@ def run():
         nav.get_by_role('button',name='Dashboard').click()
         expect(page.locator('.disaster-marker')).to_have_count(3)
         expect(page.locator('.disaster-marker .hazard-svg')).to_have_count(3)
+        ripple_toggle = page.get_by_role('button', name='Disable decorative marker ripple animation')
+        expect(ripple_toggle).to_have_attribute('aria-pressed', 'true')
+        visible_marker = None
+        markers = page.locator('.leaflet-marker-icon:has(.disaster-marker)')
+        for index in range(markers.count()):
+            candidate = markers.nth(index)
+            box = candidate.bounding_box()
+            if box and page.evaluate(
+                "([x,y]) => Boolean(document.elementFromPoint(x,y)?.closest('.leaflet-marker-icon'))",
+                [box['x'] + box['width'] / 2, box['y'] + box['height'] / 2],
+            ):
+                visible_marker = candidate
+                break
+        assert visible_marker is not None
+        visible_marker.hover()
+        assert visible_marker.locator('.marker-ripple').first.evaluate(
+            "element => getComputedStyle(element).animationName === 'marker-ripple'"
+        )
+        ripple_toggle.click()
+        expect(page.get_by_role('button', name='Enable decorative marker ripple animation')).to_have_attribute('aria-pressed', 'false')
+        assert not page.locator('.map-shell').evaluate("element => element.classList.contains('ripples-enabled')")
+        page.get_by_role('button', name='Enable decorative marker ripple animation').click()
         expect(page.locator('.marker-count')).to_have_text('2')
         expect(page.get_by_text('SYNTHETIC TEST UNSUPPORTED CYCLONE')).to_have_count(0)
         expect(page.get_by_text('OpenStreetMap', exact=True)).to_be_visible()
@@ -94,16 +118,17 @@ def run():
         marker.focus()
         marker.press('Enter')
         expect(page.locator('.leaflet-popup-content')).to_be_visible()
+        assert marker.locator('.disaster-marker').evaluate("element => element.classList.contains('is-selected')")
         expect(page.get_by_text('co-located events', exact=False)).to_be_visible()
         expect(page.get_by_role('link', name='Open official GDACS report').first).to_be_visible()
-        page.screenshot(path=str(output/'map-icon-legend-fixture.png'), full_page=True)
+        page.screenshot(path=str(output/'map-ripple-selected-desktop.png'), full_page=True)
         page.get_by_role('button', name='Collapse map legend').click()
         expect(page.get_by_role('button', name='Expand map legend')).to_be_visible()
         page.get_by_role('button', name='Expand map legend').click()
         page.set_viewport_size({'width':390,'height':844})
         page.wait_for_timeout(250)
         assert page.evaluate('document.documentElement.scrollWidth <= window.innerWidth')
-        page.screenshot(path=str(output/'map-mobile-fixture.png'), full_page=True)
+        page.screenshot(path=str(output/'map-ripple-mobile.png'), full_page=True)
         page.set_viewport_size({'width':1512,'height':1080})
         page.route('**/sync-live-events',lambda route:route.fulfill(json={'status':'ok','fetched_count':len(fixture),'inserted_count':0,'updated_count':len(fixture),'skipped_count':0}))
         page.get_by_role('button',name='Refresh GDACS').click()
@@ -121,6 +146,9 @@ def run():
         page.route('**/events?*',lambda route:route.fulfill(json={'total':len(large_fixture),'events':large_fixture,'offset':0,'limit':500}))
         page.reload()
         expect(page.locator('.regional-cluster').first).to_be_visible(timeout=10000)
+        dense_toggle = page.get_by_role('button', name='Enable decorative marker ripple animation')
+        expect(dense_toggle).to_have_attribute('aria-pressed', 'false')
+        expect(page.get_by_text('Reduced by default on dense maps', exact=True)).to_be_visible()
         rendered_groups = page.locator('.leaflet-marker-icon').count()
         assert 0 < rendered_groups < 400
         cluster = page.locator('.leaflet-marker-icon[title*="activate to zoom in"]').first
@@ -128,11 +156,15 @@ def run():
         cluster.press('Enter')
         page.wait_for_timeout(500)
         assert page.locator('.leaflet-marker-icon').count() >= rendered_groups
+        page.emulate_media(reduced_motion='reduce')
+        expect(dense_toggle).to_be_disabled()
+        expect(page.get_by_text('Disabled by your reduced-motion preference', exact=True)).to_be_visible()
+        page.emulate_media(reduced_motion='no-preference')
         assert any('/sync-live-events' in url for url in requests)
         assert not errors, errors
         # The only refresh above is intercepted with a synthetic response.
         assert not any('/local-demo/historical-predict' in url for url in requests)
-        print('PASS: map SVG categories, severity borders, grouped events, keyboard popup, legend filter/collapse, attribution, empty and mobile states.')
+        print('PASS: map SVG categories, focused ripples, motion toggle, dense/reduced-motion defaults, severity borders, grouped events, keyboard popup, legend filter/collapse, attribution and mobile states.')
         print('Screenshots:',output)
         browser.close()
 

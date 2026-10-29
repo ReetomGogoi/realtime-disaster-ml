@@ -1206,15 +1206,39 @@ footer > div { display: flex; flex-direction: column; gap: 4px; }.footer b, foot
 .premium-disaster-map .leaflet-control-attribution a { color: #72c8d3 !important; }
 .disaster-div-icon { background: transparent !important; border: 0 !important; }
 .disaster-marker { --hazard-color: #8392a5; --severity-color: #66788b; position: relative; display: grid; place-items: center; width: 32px; height: 32px; margin: 2px; color: var(--hazard-color); border: 1px solid #647587; border-radius: 9px; background: #0a1924f2; box-shadow: 0 3px 9px #0008; transition: transform .15s ease, border-color .15s ease; }
-.disaster-marker .hazard-svg { width: 18px; height: 18px; }
+.disaster-marker .hazard-svg { position: relative; z-index: 2; width: 18px; height: 18px; }
 .disaster-marker.has-severity { border: 2px solid var(--severity-color); }
 .disaster-marker.is-selected, .leaflet-marker-icon:hover .disaster-marker, .leaflet-marker-icon:focus .disaster-marker { transform: translateY(-2px) scale(1.06); border-color: #d9fbff; box-shadow: 0 5px 12px #0009; }
+.marker-ripple { position: absolute; z-index: 0; inset: 1px; border: 1px solid color-mix(in srgb, var(--hazard-color) 58%, transparent); border-radius: 50%; opacity: 0; pointer-events: none; }
+.ripples-enabled .disaster-marker.is-selected .marker-ripple,
+.ripples-enabled .leaflet-marker-icon:focus-visible .disaster-marker .marker-ripple { animation: marker-ripple 2.4s ease-out infinite; }
+.ripples-enabled .disaster-marker.is-selected .ripple-two,
+.ripples-enabled .leaflet-marker-icon:focus-visible .disaster-marker .ripple-two { animation-delay: .7s; border-color: color-mix(in srgb, var(--hazard-color) 42%, transparent); }
+@media (hover: hover) {
+  .ripples-enabled .leaflet-marker-icon:hover .disaster-marker .marker-ripple { animation: marker-ripple 2.4s ease-out infinite; }
+  .ripples-enabled .leaflet-marker-icon:hover .disaster-marker .ripple-two { animation-delay: .7s; border-color: color-mix(in srgb, var(--hazard-color) 42%, transparent); }
+}
+@keyframes marker-ripple {
+  0% { opacity: .52; transform: scale(.82); }
+  72%, 100% { opacity: 0; transform: scale(2.15); }
+}
 .leaflet-marker-icon:focus { outline: 2px solid #73e9ed; outline-offset: 4px; border-radius: 12px; }
 .marker-count { position: absolute; right: -6px; top: -6px; min-width: 17px; height: 17px; padding: 0 4px; display: grid; place-items: center; color: #06111a; background: #d9f9ff; border: 2px solid #0b1b28; border-radius: 999px; font: 700 7px Inter, sans-serif; }
 .regional-cluster { display: grid; place-items: center; align-content: center; width: 38px; height: 38px; color: #dcecf3; border: 1px solid #6f8798; border-radius: 50%; background: #0b1c28ef; box-shadow: 0 4px 10px #0008; }.regional-cluster b { font: 700 12px "Space Grotesk"; line-height: 1; }.regional-cluster small { margin-top: 2px; color: #8097a7; font-size: 5px; letter-spacing: .06em; text-transform: uppercase; }
 .hazard-svg { color: var(--hazard-color, currentColor); }
 .map-empty-state { position: absolute; z-index: 450; left: 50%; top: 50%; display: flex; align-items: center; gap: 12px; padding: 14px 17px; border: 1px solid #29465a; border-radius: 12px; color: #7090a5; background: #07141eed; box-shadow: 0 15px 45px #0008; transform: translate(-50%, -50%); pointer-events: none; }
 .map-empty-state .hazard-svg { color: #55778e; }.map-empty-state span { display: flex; flex-direction: column; gap: 3px; font-size: 9px; white-space: nowrap; }.map-empty-state b { color: #b5ccda; font-size: 10px; }
+.map-motion-control { position: absolute; z-index: 500; right: 10px; top: 88px; width: min(218px, calc(100% - 20px)); color: #68869a; border: 1px solid #29485e; border-radius: 10px; background: #07141ee8; box-shadow: 0 8px 24px #0007; backdrop-filter: blur(10px); }
+.map-motion-control button { width: 100%; min-height: 42px; padding: 8px 10px; display: grid; grid-template-columns: 24px 1fr; align-items: center; gap: 8px; text-align: left; border: 0; border-radius: 9px; background: transparent; color: #9db6c7; }
+.map-motion-control button:hover:not(:disabled), .map-motion-control button:focus-visible { background: #102b3a; }
+.map-motion-control button:disabled { cursor: not-allowed; opacity: .72; }
+.map-motion-control button > span:last-child { display: flex; flex-direction: column; gap: 2px; }
+.map-motion-control b { color: #d9eff7; font-size: 8px; letter-spacing: .04em; }
+.map-motion-control small { color: #6e8a9d; font-size: 6px; line-height: 1.3; }
+.motion-control-symbol { position: relative; width: 22px; height: 22px; display: grid; place-items: center; border: 1px solid #3f788d; border-radius: 50%; }
+.motion-control-symbol::before, .motion-control-symbol i { content: ""; position: absolute; border: 1px solid #53b9c5; border-radius: 50%; }
+.motion-control-symbol::before { inset: 4px; }.motion-control-symbol i { inset: 8px; background: #53b9c5; }
+.map-motion-control p { margin: 0; padding: 6px 10px 7px; border-top: 1px solid #1e3848; font-size: 6px; line-height: 1.45; }
 .map-hud { right: 58px; top: 14px; }
 .legend { position: absolute; z-index: 550; left: 12px; top: 12px; bottom: auto; display: block; width: min(215px, calc(100% - 82px)); max-width: none; max-height: calc(100% - 24px); padding: 0; overflow: auto; color: #b8cbd8; border: 1px solid #2b4d61; border-radius: 11px; background: #071520f2; box-shadow: 0 8px 22px #0009; backdrop-filter: blur(12px); }
 .legend-title { width: auto; display: flex; align-items: center; justify-content: space-between; padding: 13px 14px; border-bottom: 1px solid #203849; }
@@ -1249,8 +1273,12 @@ footer > div { display: flex; flex-direction: column; gap: 4px; }.footer b, foot
   .premium-disaster-map .leaflet-control-zoom { margin-top: 9px; margin-right: 9px; }
   .premium-disaster-map .leaflet-control-attribution { max-width: 65%; font-size: 6px !important; }
   .disaster-marker { width: 30px; height: 30px; }
+  .map-motion-control { right: 8px; top: 86px; width: 174px; }
+  .map-motion-control button { min-height: 38px; padding: 6px 8px; }
+  .map-motion-control p { display: none; }
 }
 @media (prefers-reduced-motion: reduce) {
   .disaster-marker { transition: none; }
   .disaster-marker.is-selected, .leaflet-marker-icon:hover .disaster-marker, .leaflet-marker-icon:focus .disaster-marker { transform: none; }
+  .marker-ripple { display: none !important; }
 }

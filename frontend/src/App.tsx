@@ -364,7 +364,7 @@ export default function App() {
                             </div>
                           </div>
                           <div className="map-caption">
-                            OpenStreetMap · Icon shape identifies hazard type; marker border shows recognized GDACS alert level only.
+                            OpenStreetMap · Icon shape identifies hazard type; marker border shows recognized GDACS alert level only. Ripple animation is a decorative focus cue, never a physical radius or forecast.
                           </div>
                         </section>
                         <section className="panel distribution">
