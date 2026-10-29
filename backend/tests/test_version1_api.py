@@ -116,6 +116,7 @@ class Version1ApiRegressionTests(unittest.TestCase):
             country=_LONG_GDACS_COUNTRY,
             event_time=datetime(2026, 10, 21, 8, tzinfo=timezone.utc),
         )
+        newer["raw_payload"]["alertlevel"] = "Orange"
         with Session(self.engine) as session:
             session.add_all([Event(**older), Event(**newer)])
             session.commit()
@@ -132,6 +133,7 @@ class Version1ApiRegressionTests(unittest.TestCase):
         self.assertEqual(len(payload["events"]), 1)
         self.assertEqual(payload["events"][0]["source_event_id"], "EQ:newer")
         self.assertEqual(payload["events"][0]["country"], _LONG_GDACS_COUNTRY)
+        self.assertEqual(payload["events"][0]["alert_level"], "Orange")
         self.assertNotIn("raw_payload", payload["events"][0])
         self.assertNotIn("ml_prediction", payload["events"][0])
 
@@ -139,11 +141,33 @@ class Version1ApiRegressionTests(unittest.TestCase):
         self.assertEqual(filtered.status_code, 200)
         self.assertEqual(filtered.json()["total"], 1)
         self.assertEqual(filtered.json()["events"][0]["source_event_id"], "EQ:older")
+        self.assertIsNone(filtered.json()["events"][0]["alert_level"])
 
         detail = self.client.get(f"/events/{newer_id}")
         self.assertEqual(detail.status_code, 200)
         self.assertEqual(detail.json()["country"], _LONG_GDACS_COUNTRY)
         self.assertNotIn("raw_payload", detail.json())
+
+        with Session(self.engine) as session:
+            row = session.execute(
+                select(Event).where(Event.source_event_id == "EQ:newer")
+            ).scalar_one()
+            row.raw_payload = {**row.raw_payload, "alertlevel": "unsupported"}
+            session.commit()
+        self.assertIsNone(self.client.get(f"/events/{newer_id}").json()["alert_level"])
+
+        with Session(self.engine) as session:
+            row = session.execute(
+                select(Event).where(Event.source_event_id == "EQ:newer")
+            ).scalar_one()
+            row.raw_payload = {
+                "alertlevel": "Red",
+                "gdacs_cyclone_observations_v1": {
+                    "alert_level": {"status": "ambiguous", "value": None}
+                },
+            }
+            session.commit()
+        self.assertIsNone(self.client.get(f"/events/{newer_id}").json()["alert_level"])
 
         missing = self.client.get("/events/999999")
         self.assertEqual(missing.status_code, 404)

@@ -44,6 +44,7 @@ class EventOut(BaseModel):
     longitude:       float | None
     event_time:      datetime | None
     source_url:      str | None
+    alert_level:     Literal["Green", "Orange", "Red"] | None = None
     fetched_at:      datetime
     created_at:      datetime
     ml_prediction: EventMLPredictionOut | None = None

@@ -16,6 +16,7 @@ export interface DisasterEvent {
   longitude: number | null;
   event_time: string | null;
   source_url: string | null;
+  alert_level?: "Green" | "Orange" | "Red" | null;
   fetched_at: string;
   created_at: string;
 }

@@ -29,8 +29,28 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+def _gdacs_alert_level(row: Event) -> str | None:
+    """Expose only a recognized source alert level; never infer severity."""
+    if row.source != "GDACS" or not isinstance(row.raw_payload, dict):
+        return None
+    value = row.raw_payload.get("alertlevel")
+    cyclone = row.raw_payload.get("gdacs_cyclone_observations_v1")
+    if isinstance(cyclone, dict):
+        structured = cyclone.get("alert_level")
+        if isinstance(structured, dict):
+            if structured.get("status") != "available":
+                return None
+            value = structured.get("value")
+    if not isinstance(value, str):
+        return None
+    return {"green": "Green", "orange": "Orange", "red": "Red"}.get(
+        value.strip().lower()
+    )
+
+
 def _event_response(row: Event, request: Request, include_predictions: bool) -> EventOut:
     response = EventOut.model_validate(row)
+    response.alert_level = _gdacs_alert_level(row)
     if include_predictions:
         response.ml_prediction = EventMLPredictionOut.model_validate(
             predict_event(row, getattr(request.app.state, "ml_bundle", None))

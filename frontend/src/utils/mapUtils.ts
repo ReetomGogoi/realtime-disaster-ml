@@ -1,19 +1,33 @@
 import { type DisasterEvent } from "../api/client";
+import { hazardDefinition } from "./hazardMeta";
 
 /** Colour for each disaster type marker */
 export const DISASTER_COLORS: Record<string, string> = {
-  Earthquake:        "#ff4d4d",
-  "Tropical Cyclone":"#a855f7",
-  Flood:             "#3b82f6",
-  "Volcanic Event":  "#f97316",
-  Wildfire:          "#ef4444",
-  Landslide:         "#a16207",
+  Earthquake: "#ff6577",
+  Flood: "#4aa8ff",
+  "Tropical Cyclone": "#b381ff",
+  Storm: "#b381ff",
+  Wildfire: "#ff7b45",
+  Drought: "#e4b657",
+  Landslide: "#cf9b5b",
+  "Volcanic Event": "#ff9c55",
+  "Volcanic activity": "#ff9c55",
 };
 
 export const DEFAULT_MARKER_COLOR = "#6b7280"; // grey for unknown types
 
 export function markerColor(event: DisasterEvent): string {
-  return DISASTER_COLORS[event.disaster_type ?? ""] ?? DEFAULT_MARKER_COLOR;
+  return hazardDefinition(event.disaster_type).color ?? DEFAULT_MARKER_COLOR;
+}
+
+export const ALERT_COLORS = {
+  Green: "#48d39f",
+  Orange: "#f5a84b",
+  Red: "#ff5d6c",
+} as const;
+
+export function alertColor(event: DisasterEvent): string | null {
+  return event.alert_level ? ALERT_COLORS[event.alert_level] : null;
 }
 
 export function formatUtc(iso: string | null): string {
@@ -24,7 +38,7 @@ export function formatUtc(iso: string | null): string {
     // the value by the browser's UTC offset (e.g. IST = +05:30 → -5h30m).
     // Fix: append Z when no offset marker is present so the string is
     // always parsed as UTC.
-    const hasOffset = /[Z+\-]\d*:?\d*$/.test(iso.trim());
+    const hasOffset = /[Z+-]\d*:?\d*$/.test(iso.trim());
     const normalized = hasOffset ? iso : `${iso}Z`;
     const d = new Date(normalized);
     if (isNaN(d.getTime())) return iso;           // unrecognised format — show raw

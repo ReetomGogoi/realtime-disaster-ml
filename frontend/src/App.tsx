@@ -115,6 +115,13 @@ export default function App() {
         .toLowerCase()
         .includes(search.toLowerCase()),
   );
+  const legendEvents = events.filter(
+    (event) =>
+      (!country || event.country === country) &&
+      `${event.title} ${event.country ?? ""} ${event.source_event_id}`
+        .toLowerCase()
+        .includes(search.toLowerCase()),
+  );
   const types = [
     ...new Set(
       events.map((e) => e.disaster_type).filter((v): v is string => Boolean(v)),
@@ -135,6 +142,7 @@ export default function App() {
     (a, b) => Date.parse(b.fetched_at) - Date.parse(a.fetched_at),
   );
   const mapped = events.filter(hasCoords).length;
+  const sourceAlertLevels = events.filter((event) => event.alert_level).length;
   const total = query.data?.total;
   const mappedPercent = events.length ? Math.round((mapped / events.length) * 100) : 0;
   const latestRetrieved = recent[0]?.fetched_at;
@@ -335,8 +343,8 @@ export default function App() {
                           ],
                           [
                             "Alert severity",
-                            "Unavailable",
-                            "Not exposed by saved-event API",
+                            sourceAlertLevels || "Unavailable",
+                            sourceAlertLevels ? "Records with recognized GDACS alert level" : "No recognized source alert levels",
                             "—",
                             "amber",
                           ],
@@ -366,17 +374,16 @@ export default function App() {
                             </div>
                           </div>
                           <div className="map-canvas">
-                            <DisasterMap events={events} />
-                            <MapLegend />
+                            <DisasterMap events={filtered} />
+                            <MapLegend events={legendEvents} activeHazard={hazard} onHazardChange={setHazard} />
                             <div className="map-hud">
                               <span>VISIBLE LAYER</span>
                               <b>Global disaster events</b>
-                              <small>{mappedPercent}% of loaded records include coordinates</small>
+                              <small>{filtered.filter(hasCoords).length.toLocaleString()} visible markers · {mappedPercent}% overall coordinate coverage</small>
                             </div>
                           </div>
                           <div className="map-caption">
-                            OpenStreetMap · Marker colors indicate hazard type,
-                            not alert severity.
+                            OpenStreetMap · Icon shape identifies hazard type; border and halo show recognized GDACS alert level only.
                           </div>
                         </section>
                         <section className="panel distribution">
@@ -632,7 +639,7 @@ export default function App() {
                     ? `${selected.latitude}, ${selected.longitude}`
                     : "Unavailable",
                 ],
-                ["Alert severity", "Not provided by this API"],
+                ["GDACS alert level", selected.alert_level ?? "Unavailable"],
               ].map(([key, value]) => (
                 <div key={key}>
                   <dt>{key}</dt>

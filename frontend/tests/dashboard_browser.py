@@ -57,13 +57,18 @@ def run():
         # Deterministic synthetic records verify search/filter/detail without
         # misrepresenting them as actual saved events or using live GDACS.
         fixture=[]
-        for i,kind in enumerate(['Earthquake','Flood']):
+        hazard_types = ['Earthquake', 'Flood', 'Tropical Cyclone', 'Wildfire',
+                        'Drought', 'Landslide', 'Volcanic Event']
+        for i,kind in enumerate(hazard_types):
             fixture.append(dict(id=i+1,source='GDACS',source_event_id=f'fixture:{i}',
                 title=f'SYNTHETIC TEST {kind}',disaster_type=kind,country='Fixture country',
                 latitude=20+i,longitude=75+i,event_time='2026-06-01T00:00:00Z',
                 fetched_at='2026-06-01T00:05:00Z',created_at='2026-06-01T00:05:00Z',
+                alert_level=['Red', 'Orange', 'Green', None, None, None, None][i],
                 source_url='https://www.gdacs.org/'))
-        page.route('**/events?*',lambda route:route.fulfill(json={'total':2,'events':fixture,'offset':0,'limit':500}))
+        fixture.append({**fixture[0], 'id': 99, 'source_event_id': 'fixture:overlap',
+                        'title': 'SYNTHETIC TEST CO-LOCATED EARTHQUAKE'})
+        page.route('**/events?*',lambda route:route.fulfill(json={'total':len(fixture),'events':fixture,'offset':0,'limit':500}))
         page.set_viewport_size({'width':1512,'height':1080})
         page.reload()
         nav.get_by_role('button',name='Disaster Explorer').click()
@@ -73,16 +78,56 @@ def run():
         expect(page.get_by_role('dialog')).to_be_visible()
         expect(page.get_by_role('link',name='View official GDACS report')).to_be_visible()
         page.get_by_role('button',name='Close details').click()
+        page.get_by_role('searchbox').fill('')
         nav.get_by_role('button',name='Dashboard').click()
-        expect(page.locator('.leaflet-interactive')).to_have_count(2)
-        page.route('**/sync-live-events',lambda route:route.fulfill(json={'status':'ok','fetched_count':2,'inserted_count':0,'updated_count':2,'skipped_count':0}))
+        expect(page.locator('.disaster-marker')).to_have_count(7)
+        expect(page.locator('.disaster-marker .hazard-svg')).to_have_count(7)
+        expect(page.locator('.marker-count')).to_have_text('2')
+        expect(page.get_by_text('OpenStreetMap', exact=True)).to_be_visible()
+        page.get_by_role('button', name='Show Flood filter, 1 mapped events').click()
+        expect(page.locator('.disaster-marker')).to_have_count(1)
+        nav.get_by_role('button', name='Disaster Explorer').click()
+        expect(page.get_by_label('Hazard category')).to_have_value('Flood')
+        nav.get_by_role('button', name='Dashboard').click()
+        page.get_by_role('button', name='Clear Flood filter, 1 mapped events').click()
+        expect(page.locator('.disaster-marker')).to_have_count(7)
+        page.screenshot(path=str(output/'map-icons-overview-fixture.png'), full_page=True)
+        marker = page.locator('.leaflet-marker-icon[tabindex="0"]:has(.marker-count)')
+        marker.focus()
+        marker.press('Enter')
+        expect(page.locator('.leaflet-popup-content')).to_be_visible()
+        expect(page.get_by_text('co-located events', exact=False)).to_be_visible()
+        expect(page.get_by_role('link', name='Open official GDACS report').first).to_be_visible()
+        page.screenshot(path=str(output/'map-icon-legend-fixture.png'), full_page=True)
+        page.get_by_role('button', name='Collapse map legend').click()
+        expect(page.get_by_role('button', name='Expand map legend')).to_be_visible()
+        page.get_by_role('button', name='Expand map legend').click()
+        page.set_viewport_size({'width':390,'height':844})
+        page.wait_for_timeout(250)
+        assert page.evaluate('document.documentElement.scrollWidth <= window.innerWidth')
+        page.screenshot(path=str(output/'map-mobile-fixture.png'), full_page=True)
+        page.set_viewport_size({'width':1512,'height':1080})
+        page.route('**/sync-live-events',lambda route:route.fulfill(json={'status':'ok','fetched_count':len(fixture),'inserted_count':0,'updated_count':len(fixture),'skipped_count':0}))
         page.get_by_role('button',name='Refresh GDACS').click()
         expect(page.get_by_text('Refresh complete:',exact=False)).to_be_visible()
+        # Hundreds-of-records regression: deterministic fixtures exercise the
+        # client rendering path without creating fake product data.
+        large_fixture = []
+        for i in range(400):
+            base = fixture[i % len(hazard_types)]
+            large_fixture.append({**base, 'id': 1000+i, 'source_event_id': f'load:{i}',
+                                  'title': f'SYNTHETIC LOAD TEST {i}',
+                                  'latitude': -59 + (i % 119),
+                                  'longitude': -169 + (i % 337)})
+        page.unroute('**/events?*')
+        page.route('**/events?*',lambda route:route.fulfill(json={'total':len(large_fixture),'events':large_fixture,'offset':0,'limit':500}))
+        page.reload()
+        expect(page.locator('.disaster-marker')).to_have_count(400, timeout=10000)
         assert any('/sync-live-events' in url for url in requests)
         assert not errors, errors
         # The only refresh above is intercepted with a synthetic response.
         assert not any('/local-demo/historical-predict' in url for url in requests)
-        print('PASS: exactly five sections; no prediction lab/API call; actual events, cyclone and performance APIs; mobile layout; synthetic search/details.')
+        print('PASS: map SVG categories, severity borders, grouped events, keyboard popup, legend filter/collapse, attribution, empty and mobile states.')
         print('Screenshots:',output)
         browser.close()
 
